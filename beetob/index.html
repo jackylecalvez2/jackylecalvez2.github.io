@@ -4548,6 +4548,10 @@ window.addEventListener('unhandledrejection', function(e) {
   <div class="kicker">Documentation</div>
   <h1 class="headline">Mode d'emploi</h1>
 
+  <div style="margin:8px 0 18px;">
+    <button class="btn btn-primary" onclick="showOnboarding(true)">▶️ Lancer le didacticiel de prise en main</button>
+  </div>
+
   <div style="max-width:800px;line-height:1.7;">
 
     <h3 style="font-family:var(--sans);font-size:20px;margin-top:16px;margin-bottom:6px;">Démarrage rapide</h3>
@@ -6251,19 +6255,24 @@ Sources prioritaires : Pappers, Societe.com, Verif.com, LinkedIn (page entrepris
 Tu cherches précisément :
 1. NOM exact du dirigeant actuel (et fonction : Président, Gérant, etc.)
 2. SIREN / SIRET
-3. CA récent si publié
-4. Effectif estimé
-5. Année de création
-6. Affiliations réseau (vérifie si listé sur sites Solabaie/Komilfo/etc.)
-7. Signaux d'opportunité (recrutement actif, reprise récente, ouverture agence)
-8. Email probable du dirigeant (pattern prenom.nom@domaine si tu trouves le pattern)
+3. COORDONNÉES DIRECTES (priorité haute) :
+   - Email : générique (contact@…) ET surtout l'email nominatif du dirigeant (cherche le pattern prenom.nom@domaine, mentions légales, signatures, annuaires)
+   - Téléphone fixe ET téléphone MOBILE/portable (mentions légales, Pages Jaunes, Google Business, signature, page contact)
+   - LinkedIn : URL du PROFIL du dirigeant ET URL de la PAGE entreprise
+   - Facebook : URL de la page entreprise
+   - Site web officiel
+4. CA récent, effectif, année de création si publiés
+5. Affiliations réseau (Solabaie/Komilfo/Tryba/etc.)
+6. Signaux d'opportunité (recrutement actif, reprise récente, ouverture agence)
+
+MÉTHODE COORDONNÉES : croise mentions légales du site, page "contact"/"équipe", Pages Jaunes, Google Business Profile, LinkedIn, Facebook, Societe.com. Pour le mobile, cherche explicitement un numéro en 06/07.
 
 RÈGLES :
-- Ne JAMAIS inventer. Si non trouvé = chaîne vide.
-- Si tu trouves une info contradictoire (ex: l'entreprise a fermé, le dirigeant a changé), SIGNALE-LE dans "alertes".
-- Réponds en JSON strict, pas de texte avant/après :
+- Ne JAMAIS inventer. Si non trouvé = chaîne vide. Distingue un email/tel VÉRIFIÉ d'un email DÉDUIT du pattern (mets le pattern déduit dans email_propose, le vérifié dans email_verifie).
+- Si info contradictoire (entreprise fermée, dirigeant changé), SIGNALE dans "alertes".
+- Réponds en JSON strict, RIEN avant/après, complète TOUTES les clés (vide si inconnu) :
 
-{"contact_prenom": "", "contact_nom": "", "contact_fonction": "", "siren": "", "ca_recent": "", "effectif": "", "annee_creation": "", "affiliations": "", "signaux": "", "email_propose": "", "alertes": "", "sources": ["URL1", "URL2"], "confiance": "haute|moyenne|basse"}`;
+{"contact_prenom": "", "contact_nom": "", "contact_fonction": "", "siren": "", "email_verifie": "", "email_propose": "", "telephone": "", "mobile": "", "linkedin_url": "", "linkedin_entreprise": "", "facebook_url": "", "site": "", "ca_recent": "", "effectif": "", "annee_creation": "", "affiliations": "", "signaux": "", "alertes": "", "sources": ["URL1", "URL2"], "confiance": "haute|moyenne|basse"}`;
 
   const user = `Enrichis ce prospect :
 - Enseigne : ${prospect.enseigne}
@@ -6272,9 +6281,9 @@ RÈGLES :
 - Infos déjà connues : ${prospect.notes_init || 'aucune'}
 - Fournisseur supposé : ${prospect.fournisseur || 'inconnu'}
 
-Cherche tout ce que tu peux trouver de fiable sur Pappers, Societe.com, LinkedIn et le site officiel.`;
+Cherche tout ce que tu peux trouver de fiable sur Pappers, Societe.com, LinkedIn, Facebook, Pages Jaunes, Google Business et le site officiel. Priorise les COORDONNÉES DIRECTES (mail nominatif, mobile, LinkedIn, Facebook).`;
 
-  const txt = await callClaude(sys, user, 1200, { webSearch: true, maxSearches: 3 });
+  const txt = await callClaude(sys, user, 1500, { webSearch: true, maxSearches: 4 });
   try {
     let cleaned = txt.replace(/```json|```/g, '').trim();
     const start = cleaned.indexOf('{');
@@ -6343,6 +6352,7 @@ async function init() {
   renderDemoBanner();
 
   window._beetobInitComplete = true;
+  maybeShowOnboarding();   // didacticiel au 1er login
 
   if (!BACKEND.useProxy && !STATE.apiKey) {
     setTimeout(() => {
@@ -7290,18 +7300,130 @@ function agendaDownloadIcs(id, type) {
   const dt = date.replace(/-/g, '');
   const next = new Date(parseDate(date)); next.setDate(next.getDate() + 1);
   const dtEnd = ymd(next).replace(/-/g, '');
-  const desc = icsEscape((p.ville ? 'Ville : ' + p.ville + '\n' : '') + (p.montant ? 'Montant : ' + formatCurrency(p.montant) + '\n' : '') + 'Étape : ' + stadeLabel(p.stade));
+  const descLines = [];
+  if (p.montant) descLines.push('Montant estimé : ' + formatCurrency(p.montant));
+  descLines.push('Étape : ' + stadeLabel(p.stade));
+  prospectContactLines(p).forEach(l => descLines.push(l));
+  descLines.push('Itinéraire : ' + prospectMapsUrl(p));
+  descLines.push('— Fiche BeetoB');
+  const desc = icsEscape(descLines.join('\n'));
+  const loc = icsEscape([p.enseigne, prospectAddressStr(p)].filter(Boolean).join(', '));
+  const hasGeo = typeof p.lat === 'number' && typeof p.lng === 'number' && !isNaN(p.lat) && !isNaN(p.lng);
   const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//BeetoB//FR', 'CALSCALE:GREGORIAN',
     'BEGIN:VEVENT', 'UID:beetob-' + id + '-' + type + '@fpee', 'DTSTART;VALUE=DATE:' + dt, 'DTEND;VALUE=DATE:' + dtEnd,
-    'SUMMARY:' + icsEscape(summary), 'DESCRIPTION:' + desc,
+    'SUMMARY:' + icsEscape(summary),
+    loc ? 'LOCATION:' + loc : null,
+    hasGeo ? 'GEO:' + p.lat + ';' + p.lng : null,
+    'DESCRIPTION:' + desc,
     'BEGIN:VALARM', 'TRIGGER:PT9H', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsEscape(summary), 'END:VALARM',
-    'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+    'END:VEVENT', 'END:VCALENDAR'].filter(Boolean).join('\r\n');
   const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
   const a = document.createElement('a'); a.href = url; a.download = 'beetob-' + (p.enseigne || 'action').replace(/[^a-z0-9]+/gi, '_') + '.ics';
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   toast('Évènement .ics téléchargé — ouvre-le pour l\'ajouter à Outlook', 'success');
 }
+
+// === FICHE COMPLÈTE À EMPORTER : géolocalisation + vCard ===
+function prospectAddressStr(p) { return [p.adresse, p.cp, p.ville].filter(Boolean).join(', '); }
+function prospectMapsUrl(p) {
+  if (typeof p.lat === 'number' && typeof p.lng === 'number' && !isNaN(p.lat) && !isNaN(p.lng))
+    return 'https://www.google.com/maps/search/?api=1&query=' + p.lat + ',' + p.lng;
+  const q = [p.enseigne, prospectAddressStr(p)].filter(Boolean).join(' ');
+  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+}
+function prospectContactLines(p) {
+  const L = [];
+  if (p.contact_prenom || p.contact_nom) L.push('Contact : ' + [p.contact_prenom, p.contact_nom].filter(Boolean).join(' ') + (p.contact_fonction ? ' (' + p.contact_fonction + ')' : ''));
+  if (p.mobile) L.push('Mobile : ' + p.mobile);
+  if (p.telephone) L.push('Fixe : ' + p.telephone);
+  if (p.email) L.push('Email : ' + p.email);
+  if (p.linkedin_url) L.push('LinkedIn : ' + p.linkedin_url);
+  if (p.facebook_url) L.push('Facebook : ' + p.facebook_url);
+  return L;
+}
+function openProspectMaps(id) { const p = (STATE.prospects || []).find(x => x.id === id); if (!p) return; window.open(prospectMapsUrl(p), '_blank', 'noopener'); }
+function vcardEscape(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n'); }
+function downloadVCard(id) {
+  const p = (STATE.prospects || []).find(x => x.id === id); if (!p) return;
+  const last = p.contact_nom || p.enseigne || 'Contact';
+  const first = p.contact_prenom || '';
+  const lines = ['BEGIN:VCARD', 'VERSION:3.0',
+    'N:' + vcardEscape(last) + ';' + vcardEscape(first) + ';;;',
+    'FN:' + vcardEscape([first, last].filter(Boolean).join(' ') || p.enseigne || 'Contact'),
+    'ORG:' + vcardEscape(p.enseigne || '')];
+  if (p.contact_fonction) lines.push('TITLE:' + vcardEscape(p.contact_fonction));
+  if (p.mobile) lines.push('TEL;TYPE=CELL:' + vcardEscape(p.mobile));
+  if (p.telephone) lines.push('TEL;TYPE=WORK,VOICE:' + vcardEscape(p.telephone));
+  if (p.email) lines.push('EMAIL;TYPE=WORK:' + vcardEscape(p.email));
+  if (p.site) lines.push('URL:' + vcardEscape(p.site));
+  if (p.linkedin_url) lines.push('URL:' + vcardEscape(p.linkedin_url));
+  if (p.facebook_url) lines.push('URL:' + vcardEscape(p.facebook_url));
+  if (prospectAddressStr(p)) lines.push('ADR;TYPE=WORK:;;' + vcardEscape(p.adresse || '') + ';' + vcardEscape(p.ville || '') + ';;' + vcardEscape(p.cp || '') + ';France');
+  const note = [];
+  if (p.fournisseur) note.push('Fournisseur : ' + p.fournisseur);
+  note.push('Étape : ' + stadeLabel(p.stade));
+  note.push('Itinéraire : ' + prospectMapsUrl(p));
+  lines.push('NOTE:' + vcardEscape(note.join('\n')));
+  lines.push('END:VCARD');
+  const url = URL.createObjectURL(new Blob([lines.join('\r\n')], { type: 'text/vcard' }));
+  const a = document.createElement('a'); a.href = url; a.download = (p.enseigne || 'contact').replace(/[^a-z0-9]+/gi, '_') + '.vcf';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast('Contact .vcf téléchargé — ouvre-le pour l\'ajouter à ton téléphone', 'success');
+}
+
+// === DIDACTICIEL DE PRISE EN MAIN ===
+const BEETOB_TOUR = [
+  { icon: '👋', title: 'Bienvenue dans BeetoB', text: 'Ton copilote de prospection FPEE. En 1 minute, le tour des fonctions clés. (Tu pourras le relancer depuis l\'onglet Aide.)' },
+  { icon: '🔎', title: 'Découverte', text: 'Trouve des entreprises réelles d\'une zone via la base officielle INSEE (Sirene). Sélectionne-les et envoie-les dans tes prospects.' },
+  { icon: '👥', title: 'Prospects', text: 'Ta base. Chaque fiche a 3 onglets : Fiche (identité + coordonnées), Enrichissement IA, Suivi & actions.' },
+  { icon: '✨', title: 'Enrichissement IA', text: 'D\'un clic, l\'IA cherche les coordonnées directes (mobile, mail, LinkedIn, Facebook), les finances, les avis, les fournisseurs et une stratégie d\'attaque.' },
+  { icon: '📍', title: 'Fiche à emporter', text: 'Sur chaque fiche : « Localiser » (Google Maps), « Contact » (vCard pour ton téléphone) et « RDV » (.ics avec adresse + coordonnées + rappel).' },
+  { icon: '📊', title: 'Pipeline', text: 'Tes affaires en kanban : glisse une carte pour la faire avancer, suis le CA pondéré, repère les affaires en sommeil.' },
+  { icon: '📅', title: 'Agenda', text: 'Toutes tes prochaines actions en vue mois/semaine, avec rappels et export Outlook.' },
+  { icon: '📨', title: 'Séquences', text: 'Relances email & LinkedIn pré-écrites (J+0 → breakup), personnalisables par l\'IA pour chaque prospect.' },
+  { icon: '🚀', title: 'C\'est parti !', text: 'Commence par la Découverte ou importe un CSV. Bonne prospection !' }
+];
+let _tourIdx = 0;
+function showOnboarding(force) {
+  if (!force) { try { if (localStorage.getItem('beetob_onboarded') === '1') return; } catch (e) {} }
+  _tourIdx = 0;
+  let ov = document.getElementById('beetobTour');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'beetobTour';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(0,30,60,.55);backdrop-filter:blur(3px);font-family:Inter,sans-serif;padding:16px;';
+    document.body.appendChild(ov);
+  }
+  ov.style.display = 'flex';
+  renderTour();
+}
+function renderTour() {
+  const ov = document.getElementById('beetobTour'); if (!ov) return;
+  const s = BEETOB_TOUR[_tourIdx];
+  const dots = BEETOB_TOUR.map((_, i) => `<span style="width:7px;height:7px;border-radius:50%;display:inline-block;background:${i === _tourIdx ? '#0078C8' : '#cdd6e0'};"></span>`).join('');
+  const last = _tourIdx === BEETOB_TOUR.length - 1;
+  ov.innerHTML = `<div style="background:#fff;border-radius:18px;max-width:420px;width:100%;padding:26px 24px;box-shadow:0 24px 70px rgba(0,0,0,.35);text-align:center;">
+    <div style="font-size:46px;line-height:1;margin-bottom:10px;">${s.icon}</div>
+    <div style="font-family:Inter,sans-serif;font-size:20px;font-weight:800;color:#0078C8;margin-bottom:8px;">${s.title}</div>
+    <div style="font-size:14px;line-height:1.55;color:#445;">${s.text}</div>
+    <div style="display:flex;justify-content:center;gap:7px;margin:18px 0;align-items:center;">${dots}</div>
+    <div style="display:flex;gap:8px;justify-content:space-between;align-items:center;">
+      <button onclick="closeOnboarding()" style="background:none;border:0;color:#889;font-size:13px;cursor:pointer;">Passer</button>
+      <div style="display:flex;gap:8px;">
+        ${_tourIdx > 0 ? `<button onclick="tourNav(-1)" style="background:#eef2f6;border:0;border-radius:9px;padding:9px 14px;font-size:14px;cursor:pointer;">‹ Retour</button>` : ''}
+        <button onclick="${last ? 'closeOnboarding()' : 'tourNav(1)'}" style="background:#0078C8;color:#fff;border:0;border-radius:9px;padding:9px 18px;font-size:14px;font-weight:700;cursor:pointer;">${last ? 'Commencer 🚀' : 'Suivant ›'}</button>
+      </div>
+    </div>
+  </div>`;
+}
+function tourNav(d) { _tourIdx = Math.max(0, Math.min(BEETOB_TOUR.length - 1, _tourIdx + d)); renderTour(); }
+function closeOnboarding() {
+  const ov = document.getElementById('beetobTour'); if (ov) ov.style.display = 'none';
+  try { localStorage.setItem('beetob_onboarded', '1'); } catch (e) {}
+}
+function maybeShowOnboarding() { setTimeout(() => showOnboarding(false), 800); }
 
 // === PROSPECT MODAL ===
 function openNewProspect() {
@@ -7421,8 +7543,12 @@ function renderProspectModal(p) {
       <div class="field"><label>Email *</label><input id="f_email" type="email" value="${escapeAttr(p.email || '')}"></div>
     </div>
     <div class="form-row">
-      <div class="field"><label>Téléphone</label><input id="f_tel" value="${escapeAttr(p.telephone || '')}"></div>
-      <div class="field"><label>LinkedIn (URL)</label><input id="f_linkedin" value="${escapeAttr(p.linkedin_url || '')}" placeholder="https://linkedin.com/in/…"></div>
+      <div class="field"><label>☎️ Téléphone fixe</label><input id="f_tel" value="${escapeAttr(p.telephone || '')}"></div>
+      <div class="field"><label>📱 Mobile</label><input id="f_mobile" value="${escapeAttr(p.mobile || '')}" placeholder="06 / 07…"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>in LinkedIn (URL)</label><input id="f_linkedin" value="${escapeAttr(p.linkedin_url || '')}" placeholder="https://linkedin.com/in/…"></div>
+      <div class="field"><label>f Facebook (URL)</label><input id="f_facebook" value="${escapeAttr(p.facebook_url || '')}" placeholder="https://facebook.com/…"></div>
     </div>
     <div class="form-row">
       <div class="field"><label>Fournisseur actuel</label><input id="f_fournisseur" value="${escapeAttr(p.fournisseur || '')}"></div>
@@ -7434,7 +7560,15 @@ function renderProspectModal(p) {
       <div class="field"><label>Notes / Contexte</label><textarea id="f_notes">${escapeHtml(p.notes_init || '')}</textarea></div>
     </div>`;
 
-  body.innerHTML = hero + tabbar
+  // Accès rapide "fiche à emporter" : localisation + contact + RDV
+  const quickBar = isExisting ? `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+      <button class="btn btn-sm" onclick="openProspectMaps('${p.id}')">📍 Localiser (Maps)</button>
+      <button class="btn btn-sm" onclick="downloadVCard('${p.id}')">📇 Contact (vCard)</button>
+      <button class="btn btn-sm" onclick="agendaDownloadIcs('${p.id}', (STATE.currentProspect && STATE.currentProspect.nextAction && STATE.currentProspect.nextAction.date) ? 'action' : 'close')">📅 RDV (.ics)</button>
+    </div>` : '';
+
+  body.innerHTML = hero + quickBar + tabbar
     + `<div id="ptab-fiche">${actionCard}${ficheFields}</div>`
     + (isExisting ? `<div id="ptab-ia" style="display:none;">${renderBriefSection(p)}</div>` : '')
     + (isExisting ? `<div id="ptab-suivi" style="display:none;">${renderActionsSection(p)}${renderNotesSection(p)}</div>` : '');
@@ -7663,7 +7797,9 @@ async function saveProspect() {
     contact_fonction: document.getElementById('f_fonction').value.trim(),
     email,
     telephone: document.getElementById('f_tel').value.trim(),
+    mobile: (document.getElementById('f_mobile')?.value || '').trim(),
     linkedin_url: document.getElementById('f_linkedin').value.trim(),
+    facebook_url: (document.getElementById('f_facebook')?.value || '').trim(),
     stade: document.getElementById('f_stade').value,
     score: parseInt(document.getElementById('f_score').value) || 0,
     fournisseur: document.getElementById('f_fournisseur').value.trim(),
@@ -8072,16 +8208,30 @@ async function enrichCurrentProspect() {
   try {
     const r = await enrichProspect(p);
 
-    // Mise à jour des champs si présents
+    // Mise à jour des champs si présents (ne pas écraser une saisie existante)
     let updated = [];
-    if (r.contact_prenom && !p.contact_prenom) { document.getElementById('f_prenom').value = r.contact_prenom; updated.push('prénom'); }
-    if (r.contact_nom && !p.contact_nom) { document.getElementById('f_nom').value = r.contact_nom; updated.push('nom'); }
-    if (r.contact_fonction && !p.contact_fonction) { document.getElementById('f_fonction').value = r.contact_fonction; updated.push('fonction'); }
-    if (r.email_propose && !p.email) { document.getElementById('f_email').value = r.email_propose; updated.push('email'); }
+    const setIf = (fieldId, val, label, force) => {
+      const el = document.getElementById(fieldId);
+      if (el && val && (force || !el.value)) { el.value = val; updated.push(label); }
+    };
+    if (r.contact_prenom && !p.contact_prenom) { setIf('f_prenom', r.contact_prenom, 'prénom'); }
+    if (r.contact_nom && !p.contact_nom) { setIf('f_nom', r.contact_nom, 'nom'); }
+    if (r.contact_fonction && !p.contact_fonction) { setIf('f_fonction', r.contact_fonction, 'fonction'); }
+    setIf('f_email', r.email_verifie || r.email_propose, 'email');
+    setIf('f_tel', r.telephone, 'téléphone');
+    setIf('f_mobile', r.mobile, 'mobile');
+    setIf('f_linkedin', r.linkedin_url || r.linkedin_entreprise, 'LinkedIn');
+    setIf('f_facebook', r.facebook_url, 'Facebook');
 
-    // Construire un récap dans les notes
+    // Construire un récap
     const recap = [];
     if (r.contact_prenom || r.contact_nom) recap.push(`Dirigeant : ${r.contact_prenom} ${r.contact_nom} (${r.contact_fonction || ''})`);
+    if (r.email_verifie) recap.push(`📧 Email vérifié : ${r.email_verifie}`);
+    else if (r.email_propose) recap.push(`📧 Email probable : ${r.email_propose}`);
+    if (r.telephone) recap.push(`☎️ Fixe : ${r.telephone}`);
+    if (r.mobile) recap.push(`📱 Mobile : ${r.mobile}`);
+    if (r.linkedin_url) recap.push(`in LinkedIn (dirigeant) : ${r.linkedin_url}`);
+    if (r.facebook_url) recap.push(`f Facebook : ${r.facebook_url}`);
     if (r.siren) recap.push(`SIREN : ${r.siren}`);
     if (r.ca_recent) recap.push(`CA : ${r.ca_recent}`);
     if (r.effectif) recap.push(`Effectif : ${r.effectif}`);
@@ -9082,6 +9232,15 @@ async function deepEnrichProspect(prospect, onProgress) {
   // On lance les recherches en SÉRIE, espacées, pour respecter la limite de débit
   const results = {};
 
+  // 0. Coordonnées directes (mobile, mail, LinkedIn, Facebook)
+  onProgress?.('contacts', 'running');
+  try {
+    results.contacts = await enrichContacts(prospect);
+    onProgress?.('contacts', 'done');
+  } catch (e) { results.contacts = deepAxisErr(e); onProgress?.('contacts', 'done'); }
+
+  await sleep(DEEP_AXIS_GAP_MS);
+
   // 1. Données financières (Pappers)
   onProgress?.('finances', 'running');
   try {
@@ -9131,7 +9290,7 @@ async function deepEnrichProspect(prospect, onProgress) {
 async function retryDeepAxis(axis) {
   const p = STATE.currentProspect;
   if (!p) return;
-  const fnMap = { finances: enrichFinances, site: enrichSite, avis: enrichAvis, fournisseurs: enrichFournisseurs };
+  const fnMap = { contacts: enrichContacts, finances: enrichFinances, site: enrichSite, avis: enrichAvis, fournisseurs: enrichFournisseurs };
   const fn = fnMap[axis];
   if (!fn) return;
   const box = document.getElementById('deepEnrichBox');
@@ -9149,6 +9308,52 @@ async function retryDeepAxis(axis) {
     if (box) box.innerHTML = renderDeepEnrichmentCards(p.deepEnrichment);
     toast(isRateLimitMsg(e && e.message) ? 'Limite de débit — patiente ~1 min' : 'Erreur sur l\'axe', 'error');
   }
+}
+
+async function enrichContacts(prospect) {
+  const sys = `Tu es un expert en recherche de COORDONNÉES DIRECTES de décideurs BtoB (menuiserie/habitat, France). Ta mission : trouver comment JOINDRE le dirigeant, pas des généralités.
+
+Tu utilises web_search en croisant : mentions légales du site officiel, page "contact"/"équipe", Pages Jaunes, Google Business Profile, LinkedIn (profil dirigeant + page entreprise), Facebook, Societe.com, Infogreffe, annuaires pro.
+
+Cibles, par ordre de priorité :
+1. EMAIL : nominatif du dirigeant (prenom.nom@domaine) — vérifié si possible ; sinon déduis le pattern depuis le domaine du site. Récupère aussi l'email générique (contact@…).
+2. TÉLÉPHONE MOBILE (06/07) : cherche-le explicitement (signatures, LinkedIn, Pages Jaunes, mentions légales). Puis le fixe.
+3. LINKEDIN : URL exacte du profil du dirigeant ET URL de la page entreprise.
+4. FACEBOOK : URL de la page entreprise.
+5. Autres : Instagram pro, WhatsApp Business si visibles.
+
+RÈGLES STRICTES :
+- Ne JAMAIS inventer un numéro ou un email. Distingue "vérifié" (vu sur une source) de "déduit" (pattern).
+- Pour chaque coordonnée, indique la source.
+- Réponds en JSON strict, RIEN avant/après, TOUTES les clés présentes (vide si introuvable) :
+{
+  "email_verifie": "",
+  "email_pattern_deduit": "",
+  "email_generique": "",
+  "mobile": "",
+  "telephone_fixe": "",
+  "linkedin_dirigeant": "",
+  "linkedin_entreprise": "",
+  "facebook": "",
+  "instagram": "",
+  "site_officiel": "",
+  "meilleur_canal": "<email/mobile/linkedin/standard — le plus direct trouvé>",
+  "fiabilite": "<élevée/moyenne/faible>",
+  "sources": ["URL1","URL2"],
+  "confiance": "haute|moyenne|basse|vide"
+}`;
+
+  const user = `Trouve les coordonnées directes pour joindre le dirigeant de :
+- Enseigne : ${prospect.enseigne}
+- Ville : ${prospect.ville} (${prospect.cp || prospect.dept || ''})
+- Dirigeant connu : ${prospect.contact_prenom || ''} ${prospect.contact_nom || ''}
+- Site/domaine connu : ${prospect.site || (prospect.email ? prospect.email.split('@')[1] : '') || 'inconnu'}
+- SIREN : ${prospect.siren || 'inconnu'}
+
+Priorise le MOBILE (06/07), l'email nominatif, le LinkedIn du dirigeant et la page Facebook.`;
+
+  const txt = await callClaude(sys, user, 1200, { webSearch: true, maxSearches: 4 });
+  return parseJsonStrict(txt);
 }
 
 async function enrichFinances(prospect) {
@@ -9182,7 +9387,7 @@ confiance="vide" si pas d'info trouvée. Ne jamais inventer.`;
 
 Cherche sur Pappers (pappers.fr/entreprise/${prospect.siren || prospect.enseigne}), Societe.com et autres sources publiques.`;
 
-  const txt = await callClaude(sys, user, 800, { webSearch: true, maxSearches: 2 });
+  const txt = await callClaude(sys, user, 1100, { webSearch: true, maxSearches: 2 });
   return parseJsonStrict(txt);
 }
 
@@ -9216,7 +9421,7 @@ Cherche d'abord le vrai site officiel (pas un annuaire).`;
 
 Cherche sur Google "${prospect.enseigne} ${prospect.ville}", visite leur site, et résume les infos stratégiques pour FPEE.`;
 
-  const txt = await callClaude(sys, user, 800, { webSearch: true, maxSearches: 2 });
+  const txt = await callClaude(sys, user, 1100, { webSearch: true, maxSearches: 2 });
   return parseJsonStrict(txt);
 }
 
@@ -9246,7 +9451,7 @@ Réponds JSON strict :
 
 Sources prioritaires : Google Maps (recherche "${prospect.enseigne} ${prospect.ville}"), Pages Jaunes.`;
 
-  const txt = await callClaude(sys, user, 800, { webSearch: true, maxSearches: 2 });
+  const txt = await callClaude(sys, user, 1100, { webSearch: true, maxSearches: 2 });
   return parseJsonStrict(txt);
 }
 
@@ -9279,7 +9484,7 @@ Réponds JSON strict :
 
 Cherche d'abord si listé chez : Solabaie, Komilfo, Tryba, K-LINE, Janneau, AtanteM, Caséo, MéO. Puis vérifie leur site et avis pour marques citées.`;
 
-  const txt = await callClaude(sys, user, 800, { webSearch: true, maxSearches: 2 });
+  const txt = await callClaude(sys, user, 1100, { webSearch: true, maxSearches: 2 });
   return parseJsonStrict(txt);
 }
 
@@ -9312,6 +9517,9 @@ PROSPECT :
 - Typologie : ${prospect.typologie || 'inconnue'}
 - Score actuel : ${prospect.score}/100
 
+COORDONNÉES DIRECTES :
+${JSON.stringify(dataOther.contacts || {}, null, 2)}
+
 DONNÉES FINANCIÈRES (Pappers) :
 ${JSON.stringify(dataOther.finances || {}, null, 2)}
 
@@ -9331,11 +9539,12 @@ Produis la stratégie d'attaque optimale en JSON.`;
 }
 
 function parseJsonStrict(txt) {
+  let cleaned = (txt || '').replace(/```json|```/g, '').trim();
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if (start !== -1 && end !== -1 && end > start) cleaned = cleaned.substring(start, end + 1);
+  cleaned = cleaned.replace(/,\s*([}\]])/g, '$1'); // tolère les virgules traînantes
   try {
-    let cleaned = (txt || '').replace(/```json|```/g, '').trim();
-    const start = cleaned.indexOf('{');
-    const end = cleaned.lastIndexOf('}');
-    if (start !== -1 && end !== -1) cleaned = cleaned.substring(start, end + 1);
     return JSON.parse(cleaned);
   } catch (e) {
     return { erreur: 'Réponse IA non parsable', raw: (txt || '').substring(0, 200), confiance: 'vide' };
@@ -9360,13 +9569,14 @@ async function runDeepEnrich() {
 
   const dejaFait = !!p.deepEnrichment;
   const avert = dejaFait ? '\n\n⚠️ Ce prospect est DÉJÀ enrichi. Relancer va refaire (et refacturer) les recherches et écraser les données actuelles.' : '';
-  if (!confirm(`Lancer l'enrichissement profond ?\n\n4 recherches web orchestrées + synthèse :\n- 📊 Finances (Pappers)\n- 🌐 Site officiel\n- ⭐ Avis Google / Pages Jaunes\n- 🏭 Fournisseurs / Affiliations\n- 🎯 Stratégie d'attaque\n\nDurée : ~60 sec · Coût réduit (mode économique)${avert}`)) return;
+  if (!confirm(`Lancer l'enrichissement profond ?\n\n5 recherches web orchestrées + synthèse :\n- 📇 Coordonnées directes (mobile, mail, LinkedIn, Facebook)\n- 📊 Finances (Pappers)\n- 🌐 Site officiel\n- ⭐ Avis Google / Pages Jaunes\n- 🏭 Fournisseurs / Affiliations\n- 🎯 Stratégie d'attaque\n\nDurée : ~75 sec · Coût réduit (mode économique)${avert}`)) return;
 
   const box = document.getElementById('deepEnrichBox');
   if (!box) return;
 
-  const steps = ['finances', 'site', 'avis', 'fournisseurs', 'strategie'];
+  const steps = ['contacts', 'finances', 'site', 'avis', 'fournisseurs', 'strategie'];
   const stepLabels = {
+    contacts: '📇 Coordonnées (mobile/mail/LinkedIn/FB)',
     finances: '📊 Finances (Pappers)',
     site: '🌐 Site internet officiel',
     avis: '⭐ Avis clients (Google/PJ)',
@@ -9405,8 +9615,26 @@ async function runDeepEnrich() {
   }
 }
 
+async function applyContactsToFiche() {
+  const p = STATE.currentProspect; if (!p) return;
+  const c = (p.deepEnrichment && p.deepEnrichment.contacts) || {};
+  if (c.erreur || c.confiance === 'vide') { toast('Coordonnées non disponibles — relance l\'axe', 'danger'); return; }
+  let n = 0;
+  const set = (key, val) => { if (val && !p[key]) { p[key] = val; n++; } };
+  set('email', c.email_verifie || c.email_pattern_deduit || c.email_generique);
+  set('mobile', c.mobile);
+  set('telephone', c.telephone_fixe);
+  set('linkedin_url', c.linkedin_dirigeant || c.linkedin_entreprise);
+  set('facebook_url', c.facebook);
+  set('site', c.site_officiel);
+  await saveKey('prospects', STATE.prospects);
+  renderProspectModal(p);   // ré-affiche la fiche (onglet Fiche) avec les champs remplis
+  toast(n ? `✓ ${n} coordonnée(s) reportée(s) dans la fiche — pense à enregistrer` : 'Champs déjà remplis', n ? 'success' : 'ia');
+}
+
 function renderDeepEnrichmentCards(data) {
   if (!data) return '';
+  const con = data.contacts || {};
   const fin = data.finances || {};
   const site = data.site || {};
   const avis = data.avis || {};
@@ -9420,6 +9648,29 @@ function renderDeepEnrichmentCards(data) {
 
   return `
     <div class="intel-grid">
+      <!-- COORDONNÉES DIRECTES -->
+      <div class="intel-card contacts" data-axis="contacts">
+        <div class="intel-card-head">
+          <h4>📇 Coordonnées directes</h4>
+          <span class="conf-badge conf-${con.confiance||'vide'}">${con.confiance||'?'}</span>
+        </div>
+        ${con.erreur ? axisErr('contacts', con) : `
+          ${con.email_verifie ? `<div class="intel-row"><span class="label">📧 Email ✓</span><span class="value"><a href="mailto:${escapeAttr(con.email_verifie)}">${escapeHtml(con.email_verifie)}</a></span></div>` : ''}
+          ${con.email_pattern_deduit && !con.email_verifie ? `<div class="intel-row"><span class="label">📧 Email (déduit)</span><span class="value">${escapeHtml(con.email_pattern_deduit)}</span></div>` : ''}
+          ${con.email_generique ? `<div class="intel-row"><span class="label">📧 Générique</span><span class="value"><a href="mailto:${escapeAttr(con.email_generique)}">${escapeHtml(con.email_generique)}</a></span></div>` : ''}
+          ${con.mobile ? `<div class="intel-row"><span class="label">📱 Mobile</span><span class="value"><a href="tel:${escapeAttr((con.mobile||'').replace(/\s/g,''))}"><strong>${escapeHtml(con.mobile)}</strong></a></span></div>` : ''}
+          ${con.telephone_fixe ? `<div class="intel-row"><span class="label">☎️ Fixe</span><span class="value"><a href="tel:${escapeAttr((con.telephone_fixe||'').replace(/\s/g,''))}">${escapeHtml(con.telephone_fixe)}</a></span></div>` : ''}
+          ${con.linkedin_dirigeant ? `<div class="intel-row"><span class="label">in Dirigeant</span><span class="value"><a href="${escapeAttr(con.linkedin_dirigeant)}" target="_blank" rel="noopener">profil ↗</a></span></div>` : ''}
+          ${con.linkedin_entreprise ? `<div class="intel-row"><span class="label">in Entreprise</span><span class="value"><a href="${escapeAttr(con.linkedin_entreprise)}" target="_blank" rel="noopener">page ↗</a></span></div>` : ''}
+          ${con.facebook ? `<div class="intel-row"><span class="label">f Facebook</span><span class="value"><a href="${escapeAttr(con.facebook)}" target="_blank" rel="noopener">page ↗</a></span></div>` : ''}
+          ${con.instagram ? `<div class="intel-row"><span class="label">Instagram</span><span class="value"><a href="${escapeAttr(con.instagram)}" target="_blank" rel="noopener">page ↗</a></span></div>` : ''}
+          ${con.site_officiel ? `<div class="intel-row"><span class="label">🌐 Site</span><span class="value"><a href="${escapeAttr(con.site_officiel)}" target="_blank" rel="noopener">visiter ↗</a></span></div>` : ''}
+          ${con.meilleur_canal ? `<div class="intel-row"><span class="label">Meilleur canal</span><span class="value"><strong>${escapeHtml(con.meilleur_canal)}</strong></span></div>` : ''}
+          <button class="pcard-btn primary" style="width:auto;margin-top:10px;" onclick="applyContactsToFiche()">⬇️ Reporter dans la fiche</button>
+          ${con.sources && con.sources.length ? `<div class="intel-sources">${con.sources.map(s => `<a href="${escapeAttr(s)}" target="_blank">[source]</a>`).join('')}</div>` : ''}
+        `}
+      </div>
+
       <!-- FINANCES -->
       <div class="intel-card finances" data-axis="finances">
         <div class="intel-card-head">
