@@ -7369,6 +7369,38 @@ function downloadVCard(id) {
   toast('Contact .vcf téléchargé — ouvre-le pour l\'ajouter à ton téléphone', 'success');
 }
 
+// Partage de la fiche complète à un collègue à distance (WhatsApp/SMS/Teams/mail)
+function prospectShareText(p) {
+  const L = [];
+  L.push('🐝 Fiche BeetoB — ' + (p.enseigne || ''));
+  if (p.contact_prenom || p.contact_nom) L.push('👤 ' + [p.contact_prenom, p.contact_nom].filter(Boolean).join(' ') + (p.contact_fonction ? ' (' + p.contact_fonction + ')' : ''));
+  const adr = prospectAddressStr(p); if (adr) L.push('📍 ' + adr);
+  if (p.mobile) L.push('📱 Mobile : ' + p.mobile);
+  if (p.telephone) L.push('☎️ Fixe : ' + p.telephone);
+  if (p.email) L.push('📧 ' + p.email);
+  if (p.linkedin_url) L.push('🔗 LinkedIn : ' + p.linkedin_url);
+  if (p.facebook_url) L.push('🔗 Facebook : ' + p.facebook_url);
+  L.push('🗺️ Itinéraire : ' + prospectMapsUrl(p));
+  L.push('— — —');
+  L.push('Étape : ' + stadeLabel(p.stade));
+  if (p.montant) L.push('Montant estimé : ' + formatCurrency(p.montant));
+  if (p.nextAction && p.nextAction.text) L.push('🎯 Action : ' + p.nextAction.text + (p.nextAction.date ? ' (' + fmtDate(p.nextAction.date) + ')' : ''));
+  if (p.fournisseur) L.push('Fournisseur : ' + p.fournisseur);
+  return L.join('\n');
+}
+async function shareProspect(id) {
+  const p = (STATE.prospects || []).find(x => x.id === id); if (!p) return;
+  const text = prospectShareText(p);
+  const title = 'Fiche BeetoB — ' + (p.enseigne || 'prospect');
+  if (navigator.share) {
+    try { await navigator.share({ title, text }); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  try { await navigator.clipboard.writeText(text); toast('📋 Fiche copiée — colle-la dans Teams, WhatsApp ou un mail', 'success'); }
+  catch (e) { toast('Partage indisponible sur ce navigateur', 'danger'); }
+  window.open('mailto:?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(text), '_blank');
+}
+
 // === DIDACTICIEL DE PRISE EN MAIN ===
 const BEETOB_TOUR = [
   { icon: '👋', title: 'Bienvenue dans BeetoB', text: 'Ton copilote de prospection FPEE. En 1 minute, le tour des fonctions clés. (Tu pourras le relancer quand tu veux via l\'abeille 🐝 « Guide du site » en bas du menu.)' },
@@ -7562,6 +7594,7 @@ function renderProspectModal(p) {
       <button class="btn btn-sm" onclick="openProspectMaps('${p.id}')">📍 Localiser (Maps)</button>
       <button class="btn btn-sm" onclick="downloadVCard('${p.id}')">📇 Contact (vCard)</button>
       <button class="btn btn-sm" onclick="agendaDownloadIcs('${p.id}', (STATE.currentProspect && STATE.currentProspect.nextAction && STATE.currentProspect.nextAction.date) ? 'action' : 'close')">📅 RDV (.ics)</button>
+      <button class="btn btn-sm btn-primary" onclick="shareProspect('${p.id}')">📤 Partager</button>
     </div>` : '';
 
   body.innerHTML = hero + quickBar + tabbar
