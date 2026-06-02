@@ -10169,10 +10169,15 @@ function renderConnections() {
 }
 
 function renderConnEngines() {
-  const claudeOk = !!STATE.apiKey;
+  const proxy = (typeof BACKEND !== 'undefined') && BACKEND.useProxy;
+  const claudeOk = proxy || !!STATE.apiKey;
+  const geminiOk = proxy || !!STATE.geminiKey;
   const lmOk = STATE.lmStudioConnected;
+  const copilotOk = !!STATE.copilotToken;
   const claudeActive = STATE.aiEngine === 'claude';
+  const geminiActive = STATE.aiEngine === 'gemini';
   const lmActive = STATE.aiEngine === 'lmstudio';
+  const copilotActive = STATE.aiEngine === 'copilot';
 
   document.getElementById('connEngineList').innerHTML = `
     <div class="conn-card ${claudeActive && claudeOk ? 'active' : 'inactive'}">
@@ -10186,10 +10191,29 @@ function renderConnEngines() {
         </div>
       </div>
       <div class="conn-actions">
-        <span class="conn-status ${claudeOk ? 'active' : 'inactive'}">${claudeOk ? '🟢 Configurée' : '⚪ Non configurée'}</span>
+        <span class="conn-status ${claudeOk ? 'active' : 'inactive'}">${claudeOk ? (proxy ? '🟢 Sécurisé (proxy)' : '🟢 Configurée') : '⚪ Non configurée'}</span>
         <div style="display:flex;gap:4px;">
           ${!claudeActive && claudeOk ? `<button class="btn btn-sm" onclick="switchEngineActive('claude')">Activer</button>` : ''}
-          <button class="btn btn-ghost btn-sm" onclick="openConnEngine('claude')">${claudeOk ? 'Modifier' : 'Configurer'}</button>
+          ${proxy ? '' : `<button class="btn btn-ghost btn-sm" onclick="openConnEngine('claude')">${claudeOk ? 'Modifier' : 'Configurer'}</button>`}
+        </div>
+      </div>
+    </div>
+
+    <div class="conn-card ${geminiActive && geminiOk ? 'active' : 'inactive'}">
+      <div class="conn-icon">✨</div>
+      <div>
+        <div class="conn-info-title">Google Gemini ${geminiActive ? '<span style="font-size:9px;background:var(--fpee-blue);color:white;padding:2px 6px;border-radius:100px;margin-left:4px;text-transform:uppercase;letter-spacing:1px;">Actif</span>' : ''}</div>
+        <div class="conn-info-meta">
+          <strong>Cloud Google</strong> · ${escapeHtml(STATE.geminiModel || GEMINI_MODEL)}<br>
+          ✅ Rapide · idéal pour partager l'appli<br>
+          ${proxy ? '🔒 Clé sécurisée côté serveur (proxy)' : '💰 Gratuit (offre AI Studio) · clé perso'}
+        </div>
+      </div>
+      <div class="conn-actions">
+        <span class="conn-status ${geminiOk ? 'active' : 'inactive'}">${geminiOk ? (proxy ? '🟢 Sécurisé (proxy)' : '🟢 Configurée') : '⚪ Non configurée'}</span>
+        <div style="display:flex;gap:4px;">
+          ${!geminiActive && geminiOk ? `<button class="btn btn-sm" onclick="switchEngineActive('gemini')">Activer</button>` : ''}
+          ${proxy ? '' : `<button class="btn btn-ghost btn-sm" onclick="openConnEngine('gemini')">${geminiOk ? 'Modifier' : 'Configurer'}</button>`}
         </div>
       </div>
     </div>
@@ -10209,6 +10233,25 @@ function renderConnEngines() {
         <div style="display:flex;gap:4px;">
           ${!lmActive && lmOk ? `<button class="btn btn-sm" onclick="switchEngineActive('lmstudio')">Activer</button>` : ''}
           <button class="btn btn-ghost btn-sm" onclick="openConnEngine('lmstudio')">${lmOk ? 'Modifier' : 'Configurer'}</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="conn-card ${copilotActive && copilotOk ? 'active' : 'inactive'}">
+      <div class="conn-icon">🟦</div>
+      <div>
+        <div class="conn-info-title">Microsoft Copilot ${copilotActive ? '<span style="font-size:9px;background:var(--fpee-blue);color:white;padding:2px 6px;border-radius:100px;margin-left:4px;text-transform:uppercase;letter-spacing:1px;">Actif</span>' : ''}</div>
+        <div class="conn-info-meta">
+          <strong>Microsoft 365 / Entra</strong> · via Graph<br>
+          ✅ Intégré à ton écosystème Microsoft<br>
+          🔑 Connexion par compte pro (MSAL)
+        </div>
+      </div>
+      <div class="conn-actions">
+        <span class="conn-status ${copilotOk ? 'active' : 'inactive'}">${copilotOk ? '🟢 Connecté' : '⚪ Non connecté'}</span>
+        <div style="display:flex;gap:4px;">
+          ${!copilotActive && copilotOk ? `<button class="btn btn-sm" onclick="switchEngineActive('copilot')">Activer</button>` : ''}
+          <button class="btn btn-ghost btn-sm" onclick="openConnEngine('copilot')">${copilotOk ? 'Modifier' : 'Configurer'}</button>
         </div>
       </div>
     </div>
@@ -10363,7 +10406,8 @@ async function switchEngineActive(engine) {
   await saveKey('ai_engine', engine);
   updateApiStatus();
   renderConnections();
-  toast(`Moteur basculé sur ${engine === 'claude' ? 'Claude API' : 'LM Studio'}`, 'success');
+  const engLabel = { claude: 'Claude API', gemini: 'Google Gemini', lmstudio: 'LM Studio', copilot: 'Microsoft Copilot' }[engine] || engine;
+  toast(`Moteur basculé sur ${engLabel}`, 'success');
 }
 
 function openConnInpi() {
