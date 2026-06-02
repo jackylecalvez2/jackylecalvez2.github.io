@@ -3823,7 +3823,7 @@ window.addEventListener('unhandledrejection', function(e) {
       </div>
       <div class="sidebar-brand-text">
         <strong>BeetoB</strong>
-        <small>FPEE · Réseau · v4.3.0</small>
+        <small>FPEE · Réseau · v4.4.0</small>
       </div>
     </div>
 
@@ -10857,8 +10857,19 @@ function _doBoot() {
 }
 async function bootBeetoB() {
   if (!BACKEND.useProxy) { _doBoot(); return; }     // mode test local sans backend
+  // Attendre que la librairie Supabase soit prête (jusqu'à ~3 s) avant de décider
+  let tries = 0;
+  while ((!window.supabase || !window.supabase.createClient) && tries < 30) {
+    await new Promise(r => setTimeout(r, 100)); tries++;
+  }
   const c = sbClient();
-  if (!c) { console.warn('[BeetoB] Supabase non chargé — démarrage dégradé.'); _doBoot(); return; }
+  if (!c) {
+    // Lib indisponible : on garde le portail fermé plutôt que d'ouvrir l'app sans contrôle
+    showLoginOverlay();
+    const m = document.getElementById('loginMsg');
+    if (m) { m.textContent = 'Connexion indisponible (réseau/librairie). Recharge la page.'; m.style.color = '#DC3545'; }
+    return;
+  }
   c.auth.onAuthStateChange((event, sess) => { if (sess) _doBoot(); });
   const session = await sbSession();
   if (session) _doBoot();
