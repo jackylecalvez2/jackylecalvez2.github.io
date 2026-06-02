@@ -3882,13 +3882,9 @@ window.addEventListener('unhandledrejection', function(e) {
         <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg></span>
         <span>Données</span>
       </button>
-      <button class="nav-tab" data-section="aide">
-        <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v14H6.5A1.5 1.5 0 0 0 5 18.5Z"/><path d="M5 18.5A1.5 1.5 0 0 0 6.5 20H19"/><line x1="9" y1="7" x2="15" y2="7"/></svg></span>
-        <span>Aide</span>
-      </button>
     </nav>
 
-    <div class="bee-help" role="button" tabindex="0" onclick="switchSection('aide')" title="Aide & retours">
+    <div class="bee-help" role="button" tabindex="0" onclick="switchSection('aide')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();switchSection('aide');}" title="Guide du site & aide">
       <svg class="bee-help-ico" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 <defs><clipPath id="beeBodyClip"><ellipse cx="33" cy="40" rx="15" ry="12.5"/></clipPath></defs>
 <ellipse cx="24" cy="22" rx="11" ry="6.5" fill="#fff" opacity="0.92" transform="rotate(-22 24 22)"/>
@@ -3904,8 +3900,8 @@ window.addEventListener('unhandledrejection', function(e) {
 <ellipse cx="33" cy="40" rx="15" ry="12.5" fill="none" stroke="#2a2c2e" stroke-width="1"/>
 </svg>
       <div class="bee-help-txt">
-        <strong>Besoin d'un coup de main&nbsp;?</strong>
-        <span>Aide &amp; retours</span>
+        <strong>Guide du site&nbsp;🐝</strong>
+        <span>Prise en main &amp; aide</span>
       </div>
     </div>
     <div class="sidebar-footer">
@@ -7375,7 +7371,7 @@ function downloadVCard(id) {
 
 // === DIDACTICIEL DE PRISE EN MAIN ===
 const BEETOB_TOUR = [
-  { icon: '👋', title: 'Bienvenue dans BeetoB', text: 'Ton copilote de prospection FPEE. En 1 minute, le tour des fonctions clés. (Tu pourras le relancer depuis l\'onglet Aide.)' },
+  { icon: '👋', title: 'Bienvenue dans BeetoB', text: 'Ton copilote de prospection FPEE. En 1 minute, le tour des fonctions clés. (Tu pourras le relancer quand tu veux via l\'abeille 🐝 « Guide du site » en bas du menu.)' },
   { icon: '🔎', title: 'Découverte', text: 'Trouve des entreprises réelles d\'une zone via la base officielle INSEE (Sirene). Sélectionne-les et envoie-les dans tes prospects.' },
   { icon: '👥', title: 'Prospects', text: 'Ta base. Chaque fiche a 3 onglets : Fiche (identité + coordonnées), Enrichissement IA, Suivi & actions.' },
   { icon: '✨', title: 'Enrichissement IA', text: 'D\'un clic, l\'IA cherche les coordonnées directes (mobile, mail, LinkedIn, Facebook), les finances, les avis, les fournisseurs et une stratégie d\'attaque.' },
