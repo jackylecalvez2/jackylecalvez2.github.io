@@ -3823,7 +3823,7 @@ window.addEventListener('unhandledrejection', function(e) {
       </div>
       <div class="sidebar-brand-text">
         <strong>BeetoB</strong>
-        <small>FPEE · Réseau · v4.5.0</small>
+        <small>FPEE · Réseau · v4.6.0</small>
       </div>
     </div>
 
@@ -5349,14 +5349,22 @@ function renderDemoBanner() {
   const el = document.getElementById('demoBanner');
   if (!el) return;
   if (STATE.prospects.length > 0) { el.innerHTML = ''; return; }
+  const legacyN = (typeof legacyLocalProspects === 'function') ? legacyLocalProspects().length : 0;
+  const migrateBtn = (legacyN && cloudReady())
+    ? `<button class="btn-demo-action" style="background:#0a7c2f;color:#fff;" onclick="migrateProspectsToCloud()">📥 Importer mes ${legacyN} prospect(s) → base centrale</button>`
+    : '';
+  const migrateNote = (legacyN && cloudReady())
+    ? `<p style="margin-top:6px;">☁️ <strong>${legacyN} prospect(s)</strong> trouvés dans ce navigateur. Clique <strong>Importer</strong> pour les remonter dans la base centrale partagée (visible par la direction et l'agence).</p>`
+    : '';
   el.innerHTML = `
     <div class="demo-banner">
       <div>
         <strong>🚀 Démarrer avec la base démo Metz v4 (vérifiée)</strong>
         <p>17 prospects vérifiés par recherches web réelles (Pages Jaunes, Société.com, Janneau.com, Tryba.com, K-Line, Prodestravaux). Concessionnaires + indépendants + artisans + amélio habitat — qualification multi-axes pré-calculée avec sources tracées.</p>
-        <p style="margin-top:6px;">↩️ Tu reviens d'une nouvelle version ? <strong>Restaure ta sauvegarde</strong> pour récupérer tes prospects et réglages.</p>
+        ${migrateNote || `<p style="margin-top:6px;">↩️ Tu reviens d'une nouvelle version ? <strong>Restaure ta sauvegarde</strong> pour récupérer tes prospects et réglages.</p>`}
       </div>
       <div style="display:flex;flex-direction:column;gap:8px;">
+        ${migrateBtn}
         <button class="btn-demo-action" onclick="loadMetzDemo()">⚡ Charger l'exemple</button>
         <button class="btn-demo-action" style="background:var(--paper-warm);color:var(--ink);" onclick="pickAndRestoreBackup()">↩️ Restaurer ma sauvegarde</button>
       </div>
@@ -5433,14 +5441,127 @@ function _warnSaveFailed(key, err) {
   }
   console.error('[BeetoB] saveKey a échoué pour', key, err);
 }
-async function saveKey(key, val) {
+async function saveKey(key, val, opts) {
   const k = _kvKey(key);
   let lastErr = null;
-  try { localStorage.setItem(k, JSON.stringify(val)); return true; }
+  let okLocal = false;
+  try { localStorage.setItem(k, JSON.stringify(val)); okLocal = true; }
   catch (e) { lastErr = e; }
-  try { if (window.storage) { await window.storage.set(key, JSON.stringify(val), false); return true; } } catch (e) { lastErr = e; }
+  if (!okLocal) {
+    try { if (window.storage) { await window.storage.set(key, JSON.stringify(val), false); okLocal = true; } } catch (e) { lastErr = e; }
+  }
+  // Phase 2.3 : la table prospects est aussi répliquée vers la base centrale Supabase
+  if (key === 'prospects' && !(opts && opts.skipCloud)) scheduleCloudSync();
+  if (okLocal) return true;
   _warnSaveFailed(key, lastErr);
   return false;
+}
+
+// ============================================================
+// BASE CENTRALE (Phase 2.3) — prospects partagés via Supabase
+// localStorage = miroir local rapide ; la table public.prospects = source de vérité.
+// RLS Supabase : chacun ne lit/écrit que son périmètre (direction = tout).
+// ============================================================
+function cloudReady() {
+  return typeof BACKEND !== 'undefined' && BACKEND.useProxy
+    && typeof ME !== 'undefined' && ME.ready && !!ME.agenceId && !!sbClient();
+}
+function _stripCloudMeta(p) { const q = Object.assign({}, p); delete q._cloudRowId; delete q._commercialId; return q; }
+
+// Lit la base centrale (la RLS ne renvoie que mon périmètre)
+async function cloudProspectsPull() {
+  if (!cloudReady()) return null;
+  const c = sbClient();
+  const { data, error } = await c.from('prospects').select('id, data, commercial_id, dept');
+  if (error) { console.warn('[cloud] pull', error.message); return null; }
+  return (data || []).map(r => Object.assign({}, r.data || {}, {
+    id: (r.data && r.data.id) || r.id,
+    _cloudRowId: r.id,
+    _commercialId: r.commercial_id || null
+  }));
+}
+
+// Crée/met à jour un prospect dans la base centrale
+async function cloudProspectUpsert(p) {
+  if (!cloudReady()) return p;
+  const c = sbClient();
+  const row = {
+    agence_id: ME.agenceId,
+    dept: (p.dept || (p.cp || '').toString().slice(0, 2) || null),
+    data: _stripCloudMeta(p)
+  };
+  if (p._commercialId) row.commercial_id = p._commercialId;
+  try {
+    if (p._cloudRowId) {
+      const { error } = await c.from('prospects').update(row).eq('id', p._cloudRowId);
+      if (error) throw error;
+    } else {
+      const { data, error } = await c.from('prospects').insert(row).select('id').single();
+      if (error) throw error;
+      p._cloudRowId = data.id;
+    }
+  } catch (e) { console.warn('[cloud] upsert', e.message || e); }
+  return p;
+}
+
+// Réplication différée et non bloquante après chaque sauvegarde de prospects
+let _cloudSyncTimer = null, _cloudSyncing = false, _cloudDirty = false;
+function scheduleCloudSync() {
+  if (!cloudReady()) return;
+  _cloudDirty = true;
+  if (_cloudSyncTimer || _cloudSyncing) return;
+  _cloudSyncTimer = setTimeout(runCloudSync, 900);
+}
+async function runCloudSync() {
+  _cloudSyncTimer = null;
+  if (_cloudSyncing || !_cloudDirty) return;
+  _cloudSyncing = true; _cloudDirty = false;
+  let assigned = false;
+  try {
+    for (const p of STATE.prospects) {
+      const before = p._cloudRowId;
+      await cloudProspectUpsert(p);
+      if (!before && p._cloudRowId) assigned = true;
+    }
+  } catch (e) { console.warn('[cloud] sync', e); }
+  // de nouveaux ids cloud attribués → on rafraîchit le miroir local (sans reboucler)
+  if (assigned) { try { await saveKey('prospects', STATE.prospects, { skipCloud: true }); } catch (e) {} }
+  _cloudSyncing = false;
+  if (_cloudDirty) scheduleCloudSync();
+}
+
+// Prospects présents dans TOUS les profils localStorage (héritage pré-login), dédupliqués
+function legacyLocalProspects() {
+  const out = [], seen = new Set();
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !/^beetob:p:.+:prospects$/.test(k)) continue;
+      let arr = []; try { arr = JSON.parse(localStorage.getItem(k)) || []; } catch (e) {}
+      for (const p of arr) {
+        const key = p.id || p.email || JSON.stringify(p).slice(0, 60);
+        if (seen.has(key)) continue;
+        seen.add(key); out.push(p);
+      }
+    }
+  } catch (e) {}
+  return out;
+}
+
+// Migration explicite : pousse les prospects locaux vers la base centrale, puis recharge depuis elle
+async function migrateProspectsToCloud() {
+  if (!cloudReady()) { try { toast('Connexion à la base centrale indisponible — reconnecte-toi.', 'danger'); } catch (e) {} return; }
+  try { toast('Synchronisation avec la base centrale…', 'info'); } catch (e) {}
+  const cloud = (await cloudProspectsPull()) || [];
+  const cloudIds = new Set(cloud.map(p => p.id));
+  const legacy = legacyLocalProspects().filter(p => !cloudIds.has(p.id));
+  let ok = 0;
+  for (const p of legacy) { const r = await cloudProspectUpsert(p); if (r._cloudRowId) ok++; }
+  const fresh = (await cloudProspectsPull()) || cloud.concat(legacy);
+  STATE.prospects = fresh;
+  await saveKey('prospects', STATE.prospects, { skipCloud: true });
+  renderAll();
+  try { toast('✓ Base centrale à jour — ' + ok + ' envoyé(s), ' + fresh.length + ' prospect(s) au total', 'success', 7000); } catch (e) {}
 }
 
 // === API CLAUDE ===
@@ -6387,6 +6508,13 @@ async function init() {
     testLMStudio().catch(() => {}); // silent
   }
   STATE.prospects = await loadKey('prospects', []);
+  // Phase 2.3 : connecté → la base centrale Supabase fait autorité (dashboard partagé + RLS par rôle)
+  if (cloudReady()) {
+    try {
+      const cloud = await cloudProspectsPull();
+      if (cloud) { STATE.prospects = cloud; await saveKey('prospects', STATE.prospects, { skipCloud: true }); }
+    } catch (e) { console.warn('[cloud] boot pull', e); }
+  }
   STATE.sequenceEmail = await loadKey('seq_email', DEFAULT_SEQ_EMAIL);
   STATE.sequenceLinkedin = await loadKey('seq_linkedin', DEFAULT_SEQ_LINKEDIN);
   STATE.cost = await loadKey('cost', { calls: 0, tokens: 0, searches: 0 });
