@@ -3823,7 +3823,7 @@ window.addEventListener('unhandledrejection', function(e) {
       </div>
       <div class="sidebar-brand-text">
         <strong>BeetoB</strong>
-        <small>FPEE · Réseau · v4.6.0</small>
+        <small>FPEE · Réseau · v4.7.0</small>
       </div>
     </div>
 
@@ -3853,6 +3853,10 @@ window.addEventListener('unhandledrejection', function(e) {
         <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2.5" x2="8" y2="6"/><line x1="16" y1="2.5" x2="16" y2="6"/></svg></span>
         <span>Agenda</span>
         <span class="count" id="countAgenda" style="display:none;background:#C0392B;">0</span>
+      </button>
+      <button class="nav-tab" data-section="equipe" id="navEquipe" style="display:none;">
+        <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.3"/><path d="M3.5 19c0-2.8 2.2-4.6 5.5-4.6s5.5 1.8 5.5 4.6"/><path d="M16 14.6c2.4.2 4 1.8 4 4.4"/></svg></span>
+        <span>Équipe</span>
       </button>
       <button class="nav-tab" data-section="carte">
         <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
@@ -4314,6 +4318,14 @@ window.addEventListener('unhandledrejection', function(e) {
   <p class="deck">Vos prospects classés par étape de vente. Glissez une carte d'une colonne à l'autre pour faire avancer l'affaire ; cliquez-la pour l'ouvrir et renseigner montant, échéance et prochaine action.</p>
   <div class="pl-stats" id="affaires_stats"></div>
   <div class="kanban" id="affaires_kanban"></div>
+</section>
+
+<!-- ============== ÉQUIPE (Phase 2.2) ============== -->
+<section id="section-equipe" class="section">
+  <div class="kicker">Agence · Équipe commerciale</div>
+  <h1 class="headline">Équipe & affectations</h1>
+  <p class="deck">Crée tes commerciaux, donne-leur des départements, et attribue-leur des prospects. Chacun ne verra que son périmètre en se connectant ; la direction voit tout.</p>
+  <div id="equipeBody"></div>
 </section>
 
 <!-- ============== CARTE ============== -->
@@ -5491,6 +5503,7 @@ async function cloudProspectUpsert(p) {
     data: _stripCloudMeta(p)
   };
   if (p._commercialId) row.commercial_id = p._commercialId;
+  else if (ME.role === 'commercial' && ME.memberId) row.commercial_id = ME.memberId; // un commercial possède ses propres fiches (requis par la RLS)
   try {
     if (p._cloudRowId) {
       const { error } = await c.from('prospects').update(row).eq('id', p._cloudRowId);
@@ -5562,6 +5575,175 @@ async function migrateProspectsToCloud() {
   await saveKey('prospects', STATE.prospects, { skipCloud: true });
   renderAll();
   try { toast('✓ Base centrale à jour — ' + ok + ' envoyé(s), ' + fresh.length + ' prospect(s) au total', 'success', 7000); } catch (e) {}
+}
+
+// ============================================================
+// MODULE ÉQUIPE (Phase 2.2) — l'assistante/chef/direction gèrent les commerciaux
+// Création, départements, attribution de prospects. RLS Supabase = garde-fou.
+// ============================================================
+let TEAM = { members: [] };
+
+// Affiche/masque les éléments réservés à l'encadrement selon le rôle connecté
+function applyRoleUI() {
+  const nav = document.getElementById('navEquipe');
+  if (nav) nav.style.display = (typeof meManagesTeam === 'function' && meManagesTeam()) ? '' : 'none';
+}
+
+async function teamPull() {
+  if (!cloudReady()) return [];
+  const c = sbClient();
+  const { data, error } = await c.from('members')
+    .select('id, email, full_name, role, departements, agence_id, active, auth_user_id');
+  if (error) { console.warn('[team] pull', error.message); return TEAM.members; }
+  TEAM.members = data || [];
+  return TEAM.members;
+}
+
+async function teamCreateCommercial(nom, email, depts) {
+  if (!cloudReady()) { try { toast('Base centrale indisponible.', 'danger'); } catch (e) {} return; }
+  email = (email || '').trim().toLowerCase();
+  if (!/.+@.+\..+/.test(email)) { try { toast('E-mail invalide.', 'danger'); } catch (e) {} return; }
+  const c = sbClient();
+  const { error } = await c.from('members').insert({
+    agence_id: ME.agenceId,
+    email: email,
+    full_name: (nom || '').trim() || email,
+    role: 'commercial',
+    departements: depts || []
+  });
+  if (error) { try { toast('Création impossible : ' + error.message, 'danger', 7000); } catch (e) {} return; }
+  try { toast('✓ Commercial ajouté : ' + (nom || email), 'success'); } catch (e) {}
+  await teamPull(); renderEquipe();
+}
+
+async function teamSetDepartements(memberId, depts) {
+  if (!cloudReady()) return;
+  const c = sbClient();
+  const { error } = await c.from('members').update({ departements: depts }).eq('id', memberId);
+  if (error) { try { toast('Maj départements impossible : ' + error.message, 'danger'); } catch (e) {} return; }
+  await teamPull(); renderEquipe();
+}
+
+async function teamToggleActive(memberId, active) {
+  if (!cloudReady()) return;
+  const c = sbClient();
+  await c.from('members').update({ active: active }).eq('id', memberId);
+  await teamPull(); renderEquipe();
+}
+
+async function teamDelete(memberId) {
+  if (!cloudReady()) return;
+  if (!confirm('Retirer ce commercial de l\'équipe ?\nSes prospects ne sont PAS supprimés — ils repassent "non affectés".')) return;
+  const c = sbClient();
+  // désaffecte ses prospects d'abord (la FK est on delete set null, mais on rafraîchit le local)
+  STATE.prospects.forEach(p => { if (p._commercialId === memberId) p._commercialId = null; });
+  const { error } = await c.from('members').delete().eq('id', memberId);
+  if (error) { try { toast('Suppression impossible : ' + error.message, 'danger'); } catch (e) {} return; }
+  await saveKey('prospects', STATE.prospects, { skipCloud: true });
+  await teamPull(); renderEquipe();
+}
+
+// Attribue (ou retire) un prospect à un commercial
+async function prospectAssign(prospectId, memberId) {
+  const p = STATE.prospects.find(x => x.id === prospectId);
+  if (!p) return;
+  p._commercialId = memberId || null;
+  if (cloudReady() && p._cloudRowId) {
+    const c = sbClient();
+    const { error } = await c.from('prospects').update({ commercial_id: memberId || null }).eq('id', p._cloudRowId);
+    if (error) { try { toast('Attribution impossible : ' + error.message, 'danger'); } catch (e) {} return; }
+  } else { scheduleCloudSync(); }
+  await saveKey('prospects', STATE.prospects, { skipCloud: true });
+  renderEquipe();
+}
+
+function _deptParse(str) {
+  return (str || '').split(/[,\s;]+/).map(s => s.trim()).filter(Boolean);
+}
+
+async function renderEquipe() {
+  const host = document.getElementById('equipeBody');
+  if (!host) return;
+  if (!cloudReady()) { host.innerHTML = '<p style="color:#667">Connecte-toi à la base centrale pour gérer l\'équipe.</p>'; return; }
+  if (!meManagesTeam()) { host.innerHTML = '<p style="color:#667">Accès réservé à la direction, au chef d\'agence et à l\'assistante.</p>'; return; }
+  host.innerHTML = '<p style="color:#667">Chargement de l\'équipe…</p>';
+  await teamPull();
+
+  const commerciaux = TEAM.members.filter(m => m.role === 'commercial');
+  const countByMember = {};
+  STATE.prospects.forEach(p => { if (p._commercialId) countByMember[p._commercialId] = (countByMember[p._commercialId] || 0) + 1; });
+
+  const esc = s => (s == null ? '' : String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])));
+
+  // --- Cartes commerciaux ---
+  const cards = commerciaux.length ? commerciaux.map(m => {
+    const linked = m.auth_user_id ? '🟢 connecté' : '🟡 pas encore connecté';
+    const depts = (m.departements || []).join(', ');
+    const n = countByMember[m.id] || 0;
+    return `
+      <div style="border:1px solid var(--line,#e3e8ef);border-radius:14px;padding:14px 16px;background:var(--paper,#fff);display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+          <div>
+            <strong style="font-size:15px;">${esc(m.full_name || m.email)}</strong>
+            <div style="font-size:12px;color:#778;">${esc(m.email)}</div>
+            <div style="font-size:11px;margin-top:2px;">${linked} · <strong>${n}</strong> prospect(s)</div>
+          </div>
+          <button onclick="teamDelete('${m.id}')" title="Retirer" style="background:none;border:0;color:#C0392B;cursor:pointer;font-size:16px;">🗑️</button>
+        </div>
+        <label style="font-size:12px;color:#556;">Départements
+          <input type="text" value="${esc(depts)}" placeholder="ex: 57, 54, 88"
+                 onkeydown="if(event.key==='Enter'){this.blur();}"
+                 onblur="teamSetDepartements('${m.id}', _deptParse(this.value))"
+                 style="width:100%;margin-top:3px;padding:7px 9px;border:1px solid var(--line,#d8dee8);border-radius:8px;font-size:13px;">
+        </label>
+      </div>`;
+  }).join('') : '<p style="color:#889;grid-column:1/-1;">Aucun commercial pour l\'instant. Ajoute-en un ci-dessous 👇</p>';
+
+  // --- Sélecteur d'attribution réutilisable ---
+  const optsFor = (sel) => '<option value="">— Non affecté —</option>' +
+    commerciaux.map(m => `<option value="${m.id}"${sel === m.id ? ' selected' : ''}>${esc(m.full_name || m.email)}</option>`).join('');
+
+  // --- Tableau d'attribution des prospects ---
+  const rows = STATE.prospects.length ? STATE.prospects.map(p => `
+      <tr style="border-top:1px solid var(--line,#eef1f6);">
+        <td style="padding:8px 6px;">${esc(p.enseigne || p.nom || '—')}</td>
+        <td style="padding:8px 6px;color:#778;">${esc(p.ville || '')} ${esc(p.dept ? '(' + p.dept + ')' : '')}</td>
+        <td style="padding:8px 6px;">
+          <select onchange="prospectAssign('${p.id}', this.value)" style="padding:6px 8px;border:1px solid var(--line,#d8dee8);border-radius:8px;font-size:13px;max-width:220px;">
+            ${optsFor(p._commercialId)}
+          </select>
+        </td>
+      </tr>`).join('') : '<tr><td colspan="3" style="padding:12px;color:#889;">Aucun prospect dans la base centrale.</td></tr>';
+
+  host.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-bottom:18px;">
+      ${cards}
+    </div>
+
+    <div style="border:1px dashed var(--line,#cdd6e3);border-radius:14px;padding:14px 16px;margin-bottom:24px;background:var(--paper-warm,#f7f9fc);">
+      <strong style="font-size:14px;">➕ Ajouter un commercial</strong>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:flex-end;">
+        <label style="font-size:12px;color:#556;flex:1;min-width:150px;">Nom
+          <input id="eq_nom" type="text" placeholder="Prénom Nom" style="width:100%;margin-top:3px;padding:8px 10px;border:1px solid var(--line,#d8dee8);border-radius:8px;font-size:13px;"></label>
+        <label style="font-size:12px;color:#556;flex:1;min-width:180px;">E-mail
+          <input id="eq_email" type="email" placeholder="prenom.nom@fpee.fr" style="width:100%;margin-top:3px;padding:8px 10px;border:1px solid var(--line,#d8dee8);border-radius:8px;font-size:13px;"></label>
+        <label style="font-size:12px;color:#556;flex:1;min-width:130px;">Départements
+          <input id="eq_depts" type="text" placeholder="57, 54, 88" style="width:100%;margin-top:3px;padding:8px 10px;border:1px solid var(--line,#d8dee8);border-radius:8px;font-size:13px;"></label>
+        <button onclick="teamCreateCommercial(document.getElementById('eq_nom').value, document.getElementById('eq_email').value, _deptParse(document.getElementById('eq_depts').value))"
+                style="background:#0a7c2f;color:#fff;border:0;padding:9px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Ajouter</button>
+      </div>
+      <p style="font-size:11px;color:#889;margin:8px 0 0;">Le commercial reçoit l'accès en se connectant une 1ʳᵉ fois avec cet e-mail (lien magique). Il ne verra que ses prospects + ses départements.</p>
+    </div>
+
+    <h3 style="font-size:15px;margin:0 0 8px;">📋 Attribution des prospects</h3>
+    <div style="overflow:auto;border:1px solid var(--line,#e3e8ef);border-radius:12px;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;background:var(--paper,#fff);">
+        <thead><tr style="background:var(--paper-warm,#f3f6fb);text-align:left;">
+          <th style="padding:9px 6px;">Prospect</th><th style="padding:9px 6px;">Ville</th><th style="padding:9px 6px;">Commercial</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }
 
 // === API CLAUDE ===
@@ -6622,6 +6804,7 @@ function switchSection(name) {
   if (name === 'suivi') suivi_render();
   if (name === 'affaires') renderAffaires();
   if (name === 'agenda') renderAgenda();
+  if (name === 'equipe') renderEquipe();
   closeSidebarMobile();
   window.scrollTo(0, 0);
 }
@@ -11606,6 +11789,7 @@ async function _doBoot() {
   ensureAuthProfile();      // pont login → espace de données + rôle autoritaire
   await init();
   injectAccountBadge();     // pastille "connecté · rôle" + déconnexion
+  applyRoleUI();            // affiche l'onglet Équipe pour l'encadrement (Phase 2.2)
 }
 async function bootBeetoB() {
   if (!BACKEND.useProxy) { _doBoot(); return; }     // mode test local sans backend
