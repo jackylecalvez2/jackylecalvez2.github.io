@@ -7648,12 +7648,13 @@ function renderBriefSection(p) {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:6px;flex-wrap:wrap;">
       <h4 style="font-family:var(--sans);font-size:17px;">Intelligence IA</h4>
       <div style="display:flex;gap:4px;flex-wrap:wrap;">
+        <button class="btn btn-ia btn-sm" onclick="findContactsForCurrent()" ${aiWebSearchAvailable()?'':'disabled'} title="${STATE.aiEngine!=='claude'?'Recherche web = Claude uniquement (active Claude dans Connexions)':''}">📇 Trouver les coordonnées</button>
         <button class="btn btn-deep btn-sm" onclick="runDeepEnrich()" ${aiWebSearchAvailable()?'':'disabled'} title="${STATE.aiEngine!=='claude'?'Recherche web = Claude uniquement (active Claude dans Connexions)':''}">Enrichissement profond</button>
         <button class="btn btn-ia btn-sm" onclick="enrichCurrentProspect()" ${aiWebSearchAvailable()?'':'disabled'} title="${STATE.aiEngine!=='claude'?'Recherche web = Claude uniquement':''}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:6px"><circle cx="11" cy="11" r="7"/><line x1="16" y1="16" x2="21" y2="21"/></svg>Enrichir simple</button>
         <button class="btn btn-ia btn-sm" onclick="generateBriefForCurrent()" ${aiAvailable()?'':'disabled'}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:6px"><rect x="6" y="4" width="12" height="16" rx="2"/><path d="M9 4V3h6v1"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="9" y1="14" x2="13" y2="14"/></svg>Brief</button>
       </div>
     </div>
-    <div id="deepEnrichBox">${p.deepEnrichment ? renderDeepEnrichmentCards(p.deepEnrichment) : ''}</div>
+    <div id="deepEnrichBox">${p.deepEnrichment ? renderDeepBox(p.deepEnrichment) : ''}</div>
     <div id="enrichBox" style="margin-top:10px;">${p.lastEnrichment ? renderEnrichmentBox(p.lastEnrichment) : ''}</div>
     <div id="briefBox" style="margin-top:8px;">${p.lastBrief ? `<div class="ia-box"><div class="ia-content">${escapeHtml(p.lastBrief)}</div></div>` : ''}</div>
     ${!p.lastEnrichment && !p.lastBrief && !p.deepEnrichment ? '<div style="font-size:12px;color:var(--muted);font-style:italic;">🔥 <strong>Enrichissement profond</strong> = 4 sources web orchestrées + synthèse (mode économique)<br>🔍 <strong>Enrichir simple</strong> = recherche dirigeant/SIREN<br>📋 <strong>Brief</strong> = synthèse sur les données existantes (sans recherche web, très peu coûteux)</div>' : ''}
@@ -9661,6 +9662,59 @@ async function applyContactsToFiche() {
   toast(n ? `✓ ${n} coordonnée(s) reportée(s) dans la fiche — pense à enregistrer` : 'Champs déjà remplis', n ? 'success' : 'ia');
 }
 
+function renderContactsCard(con) {
+  con = con || {};
+  const retry = `<button class="pcard-btn" style="width:auto;margin-top:8px;" onclick="findContactsForCurrent()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg>Relancer la recherche</button>`;
+  const aucune = !con.email_verifie && !con.email_pattern_deduit && !con.email_generique && !con.mobile && !con.telephone_fixe && !con.linkedin_dirigeant && !con.linkedin_entreprise && !con.facebook;
+  const inner = con.erreur
+    ? `<div class="cell-meta" style="color:var(--danger);">${escapeHtml(con.erreur)}</div>${retry}`
+    : `
+      ${con.email_verifie ? `<div class="intel-row"><span class="label">📧 Email ✓</span><span class="value"><a href="mailto:${escapeAttr(con.email_verifie)}">${escapeHtml(con.email_verifie)}</a></span></div>` : ''}
+      ${con.email_pattern_deduit && !con.email_verifie ? `<div class="intel-row"><span class="label">📧 Email (déduit)</span><span class="value">${escapeHtml(con.email_pattern_deduit)}</span></div>` : ''}
+      ${con.email_generique ? `<div class="intel-row"><span class="label">📧 Générique</span><span class="value"><a href="mailto:${escapeAttr(con.email_generique)}">${escapeHtml(con.email_generique)}</a></span></div>` : ''}
+      ${con.mobile ? `<div class="intel-row"><span class="label">📱 Mobile</span><span class="value"><a href="tel:${escapeAttr((con.mobile||'').replace(/\s/g,''))}"><strong>${escapeHtml(con.mobile)}</strong></a></span></div>` : ''}
+      ${con.telephone_fixe ? `<div class="intel-row"><span class="label">☎️ Fixe</span><span class="value"><a href="tel:${escapeAttr((con.telephone_fixe||'').replace(/\s/g,''))}">${escapeHtml(con.telephone_fixe)}</a></span></div>` : ''}
+      ${con.linkedin_dirigeant ? `<div class="intel-row"><span class="label">in Dirigeant</span><span class="value"><a href="${escapeAttr(con.linkedin_dirigeant)}" target="_blank" rel="noopener">profil ↗</a></span></div>` : ''}
+      ${con.linkedin_entreprise ? `<div class="intel-row"><span class="label">in Entreprise</span><span class="value"><a href="${escapeAttr(con.linkedin_entreprise)}" target="_blank" rel="noopener">page ↗</a></span></div>` : ''}
+      ${con.facebook ? `<div class="intel-row"><span class="label">f Facebook</span><span class="value"><a href="${escapeAttr(con.facebook)}" target="_blank" rel="noopener">page ↗</a></span></div>` : ''}
+      ${con.instagram ? `<div class="intel-row"><span class="label">Instagram</span><span class="value"><a href="${escapeAttr(con.instagram)}" target="_blank" rel="noopener">page ↗</a></span></div>` : ''}
+      ${con.site_officiel ? `<div class="intel-row"><span class="label">🌐 Site</span><span class="value"><a href="${escapeAttr(con.site_officiel)}" target="_blank" rel="noopener">visiter ↗</a></span></div>` : ''}
+      ${con.meilleur_canal ? `<div class="intel-row"><span class="label">Meilleur canal</span><span class="value"><strong>${escapeHtml(con.meilleur_canal)}</strong></span></div>` : ''}
+      ${aucune ? `<div style="font-size:12px;color:var(--muted);font-style:italic;margin:4px 0;">Aucune coordonnée trouvée pour l'instant.</div>${retry}` : `<button class="pcard-btn primary" style="width:auto;margin-top:10px;" onclick="applyContactsToFiche()">⬇️ Reporter dans la fiche</button>`}
+      ${con.sources && con.sources.length ? `<div class="intel-sources">${con.sources.map(s => `<a href="${escapeAttr(s)}" target="_blank">[source]</a>`).join('')}</div>` : ''}`;
+  return `<div class="intel-card contacts" data-axis="contacts">
+      <div class="intel-card-head"><h4>📇 Coordonnées directes</h4><span class="conf-badge conf-${con.confiance||'vide'}">${con.confiance||'?'}</span></div>
+      ${inner}
+    </div>`;
+}
+
+// Affiche soit l'enrichissement complet, soit juste la carte coordonnées si c'est le seul axe présent
+function renderDeepBox(data) {
+  if (!data) return '';
+  const hasFull = data.finances || data.site || data.avis || data.fournisseurs || data.strategie;
+  if (hasFull) return renderDeepEnrichmentCards(data);
+  if (data.contacts) return `<div class="intel-grid">${renderContactsCard(data.contacts)}</div>`;
+  return '';
+}
+
+async function findContactsForCurrent() {
+  if (!STATE.currentProspect) return;
+  if (!aiWebSearchAvailable()) { alert('La recherche de coordonnées nécessite Claude (recherche web). Va dans Connexions → Moteur IA → active Claude, puis réessaie.'); return; }
+  const p = STATE.currentProspect;
+  const box = document.getElementById('deepEnrichBox');
+  if (box) box.innerHTML = '<div class="ia-loader"><div class="ia-spinner"></div>Recherche des coordonnées (mobile, mail, LinkedIn, Facebook)…</div>';
+  try {
+    const c = await enrichContacts(p);
+    if (!p.deepEnrichment) p.deepEnrichment = {};
+    p.deepEnrichment.contacts = c;
+    await saveKey('prospects', STATE.prospects);
+    if (box) box.innerHTML = renderDeepBox(p.deepEnrichment);
+    toast('✓ Coordonnées récupérées', 'ia');
+  } catch (e) {
+    if (box) box.innerHTML = `<div class="alert">Erreur : ${escapeHtml(e.message)}</div>`;
+  }
+}
+
 function renderDeepEnrichmentCards(data) {
   if (!data) return '';
   const con = data.contacts || {};
@@ -9678,27 +9732,7 @@ function renderDeepEnrichmentCards(data) {
   return `
     <div class="intel-grid">
       <!-- COORDONNÉES DIRECTES -->
-      <div class="intel-card contacts" data-axis="contacts">
-        <div class="intel-card-head">
-          <h4>📇 Coordonnées directes</h4>
-          <span class="conf-badge conf-${con.confiance||'vide'}">${con.confiance||'?'}</span>
-        </div>
-        ${con.erreur ? axisErr('contacts', con) : `
-          ${con.email_verifie ? `<div class="intel-row"><span class="label">📧 Email ✓</span><span class="value"><a href="mailto:${escapeAttr(con.email_verifie)}">${escapeHtml(con.email_verifie)}</a></span></div>` : ''}
-          ${con.email_pattern_deduit && !con.email_verifie ? `<div class="intel-row"><span class="label">📧 Email (déduit)</span><span class="value">${escapeHtml(con.email_pattern_deduit)}</span></div>` : ''}
-          ${con.email_generique ? `<div class="intel-row"><span class="label">📧 Générique</span><span class="value"><a href="mailto:${escapeAttr(con.email_generique)}">${escapeHtml(con.email_generique)}</a></span></div>` : ''}
-          ${con.mobile ? `<div class="intel-row"><span class="label">📱 Mobile</span><span class="value"><a href="tel:${escapeAttr((con.mobile||'').replace(/\s/g,''))}"><strong>${escapeHtml(con.mobile)}</strong></a></span></div>` : ''}
-          ${con.telephone_fixe ? `<div class="intel-row"><span class="label">☎️ Fixe</span><span class="value"><a href="tel:${escapeAttr((con.telephone_fixe||'').replace(/\s/g,''))}">${escapeHtml(con.telephone_fixe)}</a></span></div>` : ''}
-          ${con.linkedin_dirigeant ? `<div class="intel-row"><span class="label">in Dirigeant</span><span class="value"><a href="${escapeAttr(con.linkedin_dirigeant)}" target="_blank" rel="noopener">profil ↗</a></span></div>` : ''}
-          ${con.linkedin_entreprise ? `<div class="intel-row"><span class="label">in Entreprise</span><span class="value"><a href="${escapeAttr(con.linkedin_entreprise)}" target="_blank" rel="noopener">page ↗</a></span></div>` : ''}
-          ${con.facebook ? `<div class="intel-row"><span class="label">f Facebook</span><span class="value"><a href="${escapeAttr(con.facebook)}" target="_blank" rel="noopener">page ↗</a></span></div>` : ''}
-          ${con.instagram ? `<div class="intel-row"><span class="label">Instagram</span><span class="value"><a href="${escapeAttr(con.instagram)}" target="_blank" rel="noopener">page ↗</a></span></div>` : ''}
-          ${con.site_officiel ? `<div class="intel-row"><span class="label">🌐 Site</span><span class="value"><a href="${escapeAttr(con.site_officiel)}" target="_blank" rel="noopener">visiter ↗</a></span></div>` : ''}
-          ${con.meilleur_canal ? `<div class="intel-row"><span class="label">Meilleur canal</span><span class="value"><strong>${escapeHtml(con.meilleur_canal)}</strong></span></div>` : ''}
-          <button class="pcard-btn primary" style="width:auto;margin-top:10px;" onclick="applyContactsToFiche()">⬇️ Reporter dans la fiche</button>
-          ${con.sources && con.sources.length ? `<div class="intel-sources">${con.sources.map(s => `<a href="${escapeAttr(s)}" target="_blank">[source]</a>`).join('')}</div>` : ''}
-        `}
-      </div>
+      ${renderContactsCard(con)}
 
       <!-- FINANCES -->
       <div class="intel-card finances" data-axis="finances">
