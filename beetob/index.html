@@ -3823,7 +3823,7 @@ window.addEventListener('unhandledrejection', function(e) {
       </div>
       <div class="sidebar-brand-text">
         <strong>BeetoB</strong>
-        <small>FPEE · Réseau · v4.4.0</small>
+        <small>FPEE · Réseau · v4.5.0</small>
       </div>
     </div>
 
@@ -4855,6 +4855,66 @@ async function proxyCall(engine, payload, model) {
 async function beetobLogout() {
   const c = sbClient(); if (c) { try { await c.auth.signOut(); } catch (e) {} }
   location.reload();
+}
+
+// === MEMBERSHIP (Phase 2) : rôle / agence / périmètre du membre connecté ===
+let ME = { ready:false, email:null, role:null, agenceId:null, memberId:null, departements:[], fullName:null };
+function roleLabel(r){ return ({direction:'Direction', chef_agence:"Chef d'agence", assistante:'Assistante', commercial:'Commercial'})[r] || (r ? r : '—'); }
+function meSeesAllAgencies(){ return ME.role === 'direction'; }
+function meManagesTeam(){ return ME.role === 'direction' || ME.role === 'chef_agence' || ME.role === 'assistante'; }
+async function loadMembership() {
+  const c = sbClient(); if (!c) return ME;
+  try {
+    const sess = await sbSession();
+    ME.email = sess?.user?.email || null;
+    // 1) relie le login courant à sa fiche membre (match e-mail) si pas déjà fait
+    try { await c.rpc('claim_membership'); } catch (e) { console.warn('claim_membership', e); }
+    // 2) lit ma fiche membre (la RLS ne renvoie que ce que j'ai le droit de voir)
+    if (ME.email) {
+      const { data, error } = await c.from('members')
+        .select('id, role, agence_id, departements, full_name, email')
+        .eq('email', ME.email).limit(1).maybeSingle();
+      if (!error && data) {
+        ME.memberId = data.id; ME.role = data.role; ME.agenceId = data.agence_id;
+        ME.departements = data.departements || []; ME.fullName = data.full_name;
+      }
+    }
+  } catch (e) { console.warn('loadMembership', e); }
+  ME.ready = true;
+  return ME;
+}
+// Pont login → profil local : chaque utilisateur connecté a son espace de données,
+// et son rôle/zones viennent de la base (autorité). Évite le double onboarding.
+function ensureAuthProfile() {
+  if (!ME.email) return;
+  const pid = 'auth_' + ME.email.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  const all = profilesLoadAll();
+  let prof = all.find(p => p.id === pid);
+  const parts = (ME.fullName || '').trim().split(/\s+/);
+  if (!prof) {
+    prof = { id: pid, prenom: parts[0] || '', nom: parts.slice(1).join(' ') || '',
+             role: roleLabel(ME.role), zones: ME.departements || [], email: ME.email };
+    all.push(prof);
+  } else {
+    prof.role = roleLabel(ME.role); prof.zones = ME.departements || []; prof.email = ME.email;
+  }
+  profilesSaveAll(all);
+  profilesSetCurrentId(pid);
+}
+// Pastille "connecté en tant que … (rôle)" + déconnexion
+function injectAccountBadge() {
+  let el = document.getElementById('beetobAccount');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'beetobAccount';
+    el.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:9000;background:rgba(0,120,200,.95);color:#fff;font:600 12px/1.2 Inter,sans-serif;padding:7px 12px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.18);display:flex;align-items:center;gap:10px;';
+    document.body.appendChild(el);
+  }
+  const who = ME.fullName || ME.email || '—';
+  el.innerHTML = '<span>🐝 ' + who + ' · ' + roleLabel(ME.role) + '</span>'
+    + '<a href="#" id="beetobLogoutLink" style="color:#cde8ff;text-decoration:underline;cursor:pointer;">Déconnexion</a>';
+  const lk = document.getElementById('beetobLogoutLink');
+  if (lk) lk.addEventListener('click', function (e) { e.preventDefault(); beetobLogout(); });
 }
 // IA dispo si proxy actif (clé serveur) OU clé locale renseignée
 function aiAvailable() { return (typeof BACKEND !== 'undefined' && BACKEND.useProxy) || !!STATE.apiKey; }
@@ -11410,11 +11470,14 @@ async function sendMagicLink() {
 
 // === Démarrage : on exige une session avant d'ouvrir l'app ===
 window._beetobBooted = false;
-function _doBoot() {
+async function _doBoot() {
   if (window._beetobBooted) return;
   window._beetobBooted = true;
   hideLoginOverlay();
-  init();
+  await loadMembership();   // qui suis-je ? (rôle/agence/périmètre depuis Supabase)
+  ensureAuthProfile();      // pont login → espace de données + rôle autoritaire
+  await init();
+  injectAccountBadge();     // pastille "connecté · rôle" + déconnexion
 }
 async function bootBeetoB() {
   if (!BACKEND.useProxy) { _doBoot(); return; }     // mode test local sans backend
