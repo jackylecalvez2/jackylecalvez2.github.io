@@ -3871,7 +3871,7 @@ window.addEventListener('unhandledrejection', function(e) {
       </div>
       <div class="sidebar-brand-text">
         <strong>BeetoB</strong>
-        <small>FPEE · Réseau · v4.9.3</small>
+        <small>FPEE · Réseau · v4.10.0</small>
       </div>
     </div>
 
@@ -5488,6 +5488,70 @@ let STATE = {
 // - Les clés de configuration IA sont GLOBALES (configurées une seule fois).
 // - Les données métier sont isolées PAR PROFIL.
 const BEETOB_GLOBAL_KEYS = new Set(['api_key', 'claude_model', 'ai_engine', 'gemini_key', 'gemini_model', 'lm_studio_url', 'lm_studio_model', 'ai_config', 'copilot_token', 'copilot_endpoint', 'copilot_client_id', 'copilot_tenant_id', 'copilot_msal_url']);
+// ============================================================
+// STOCKAGE IndexedDB (v4.10.0) — magasin primaire des données (capacité large,
+// fini le quota ~5 Mo de localStorage et l'échec d'écriture silencieux).
+// localStorage reste : (a) repli automatique si IDB indisponible, (b) magasin des
+// petits flags lus en SYNCHRONE (profil courant, thème, onboarding) — qu'on NE
+// touche pas pour ne pas casser _kvKey. Migration idempotente au boot, zéro perte.
+// Le cloud Supabase reste le filet de sécurité des prospects.
+// ============================================================
+const IDB = { db: null, ready: false, name: 'beetob-kv', store: 'kv' };
+function openIDB() {
+  return new Promise((resolve) => {
+    try {
+      if (!('indexedDB' in window) || !window.indexedDB) { IDB.ready = false; return resolve(false); }
+      const req = indexedDB.open(IDB.name, 1);
+      req.onupgradeneeded = () => { const db = req.result; if (!db.objectStoreNames.contains(IDB.store)) db.createObjectStore(IDB.store); };
+      req.onsuccess = () => { IDB.db = req.result; IDB.ready = true; resolve(true); };
+      req.onerror = () => { IDB.ready = false; resolve(false); };
+      req.onblocked = () => { IDB.ready = false; resolve(false); };
+    } catch (e) { IDB.ready = false; resolve(false); }
+  });
+}
+function idbGet(k) {
+  return new Promise((resolve) => {
+    if (!IDB.ready) return resolve(undefined);
+    try { const r = IDB.db.transaction(IDB.store, 'readonly').objectStore(IDB.store).get(k);
+      r.onsuccess = () => resolve(r.result); r.onerror = () => resolve(undefined); }
+    catch (e) { resolve(undefined); }
+  });
+}
+function idbSet(k, v) {
+  return new Promise((resolve, reject) => {
+    if (!IDB.ready) return reject(new Error('idb indisponible'));
+    try { const t = IDB.db.transaction(IDB.store, 'readwrite'); t.objectStore(IDB.store).put(v, k);
+      t.oncomplete = () => resolve(true); t.onerror = () => reject(t.error || new Error('idb write')); t.onabort = () => reject(t.error || new Error('idb abort')); }
+    catch (e) { reject(e); }
+  });
+}
+function idbKeys() {
+  return new Promise((resolve) => {
+    if (!IDB.ready) return resolve([]);
+    try { const r = IDB.db.transaction(IDB.store, 'readonly').objectStore(IDB.store).getAllKeys();
+      r.onsuccess = () => resolve(r.result || []); r.onerror = () => resolve([]); }
+    catch (e) { resolve([]); }
+  });
+}
+// Migration unique localStorage → IDB (idempotente) : copie toutes les clés beetob:*
+// pas encore présentes en IDB. On NE supprime PAS localStorage (repli + scan legacy).
+async function migrateLocalToIDB() {
+  if (!IDB.ready) return;
+  try {
+    const existing = new Set(await idbKeys());
+    let migrated = 0;
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf('beetob:') === 0) keys.push(k); }
+    for (const k of keys) {
+      if (existing.has(k)) continue;            // déjà en IDB → l'IDB fait foi (plus frais)
+      const raw = localStorage.getItem(k);
+      if (raw === null) continue;
+      try { await idbSet(k, raw); migrated++; } catch (e) {}
+    }
+    if (migrated) console.log('[BeetoB] migration IndexedDB : ' + migrated + ' clé(s) copiée(s) depuis localStorage');
+  } catch (e) { console.warn('[BeetoB] migrateLocalToIDB', e); }
+}
+
 function _kvKey(key) {
   if (BEETOB_GLOBAL_KEYS.has(key)) return 'beetob:global:' + key;
   let prof = 'default';
@@ -5496,11 +5560,16 @@ function _kvKey(key) {
 }
 async function loadKey(key, def) {
   const k = _kvKey(key);
+  // 1) IndexedDB (magasin primaire depuis v4.10.0)
+  if (IDB.ready) {
+    try { const v = await idbGet(k); if (v !== undefined && v !== null) return JSON.parse(v); } catch (e) {}
+  }
+  // 2) Repli localStorage (données non encore migrées, ou IDB indisponible)
   try {
     const raw = localStorage.getItem(k);
     if (raw !== null) return JSON.parse(raw);
   } catch (e) {}
-  // Repli : aperçu d'artefact Claude (window.storage)
+  // 3) Repli : aperçu d'artefact Claude (window.storage)
   try { if (window.storage) { const r = await window.storage.get(key, false); return r ? JSON.parse(r.value) : def; } } catch (e) {}
   return def;
 }
@@ -5529,10 +5598,20 @@ async function saveKey(key, val, opts) {
   const k = _kvKey(key);
   let lastErr = null;
   let okLocal = false;
-  try { localStorage.setItem(k, JSON.stringify(val)); okLocal = true; }
-  catch (e) { lastErr = e; }
+  const json = JSON.stringify(val);
+  // 1) IndexedDB en priorité (grande capacité, pas de quota ~5 Mo). On n'écrit PAS
+  //    aussi en localStorage : inutile de regonfler le quota, l'IDB fait foi (loadKey le lit en 1er).
+  if (IDB.ready) {
+    try { await idbSet(k, json); okLocal = true; } catch (e) { lastErr = e; }
+  }
+  // 2) Repli localStorage si IDB absent/échoué
   if (!okLocal) {
-    try { if (window.storage) { await window.storage.set(key, JSON.stringify(val), false); okLocal = true; } } catch (e) { lastErr = e; }
+    try { localStorage.setItem(k, json); okLocal = true; }
+    catch (e) { lastErr = e; }
+  }
+  // 3) Repli : aperçu d'artefact Claude (window.storage)
+  if (!okLocal) {
+    try { if (window.storage) { await window.storage.set(key, json, false); okLocal = true; } } catch (e) { lastErr = e; }
   }
   // Phase 2.3 : la table prospects est aussi répliquée vers la base centrale Supabase
   if (key === 'prospects' && !(opts && opts.skipCloud)) scheduleCloudSync();
@@ -6769,6 +6848,9 @@ function setupPWA() {
 }
 
 async function init() {
+  // Stockage IndexedDB : on l'ouvre et on migre l'existant AVANT tout chargement de données
+  await openIDB();
+  await migrateLocalToIDB();
   setupPWA();
   // SAFETY: forcer la fermeture de tous les overlays qui pourraient bloquer les clics
   document.getElementById('sidebarBackdrop')?.classList.remove('show');
