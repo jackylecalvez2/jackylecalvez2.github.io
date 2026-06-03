@@ -2,8 +2,14 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BeetoB — La précision au service de votre réseau</title>
+<!-- PWA : installable sur l'écran d'accueil (commerciaux sur la route) -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BeetoB">
+<meta name="theme-color" content="#003a66">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Open+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -3667,6 +3673,43 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--sans) !important; }
   .kan-card.asleep{border-left-color:var(--danger);}
   .kan-empty{font-size:11px;color:var(--text-3);font-style:italic;text-align:center;padding:14px 4px;}
 </style>
+<style>
+  /* ====== MODE ALLÉGÉ MOBILE — barre de navigation basse (PWA commercial sur la route) ====== */
+  .mobile-bottomnav{
+    display:none;
+    position:fixed; left:0; right:0; bottom:0; z-index:1200;
+    grid-template-columns:repeat(4,1fr); gap:2px;
+    background:var(--surface-0); border-top:1px solid var(--rule);
+    padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));
+    box-shadow:0 -4px 20px rgba(11,26,43,.12);
+  }
+  .mobile-bottomnav button{
+    background:none; border:0; cursor:pointer; position:relative;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding:7px 2px 5px; border-radius:13px;
+    font:600 10.5px/1.1 var(--sans); color:var(--text-2);
+    transition:color .15s, transform .15s;
+  }
+  .mobile-bottomnav button .icon{display:inline-flex;}
+  .mobile-bottomnav button .icon svg{width:23px;height:23px;}
+  .mobile-bottomnav button.active{color:var(--fpee-blue);}
+  .mobile-bottomnav button.active .icon{transform:translateY(-1px);}
+  .mobile-bottomnav button:active{transform:scale(.93);}
+  .mobile-bottomnav .mnav-badge{
+    position:absolute; top:1px; right:50%; margin-right:-26px;
+    min-width:16px; height:16px; padding:0 4px;
+    background:var(--danger,#C0392B); color:#fff; border-radius:9px;
+    font:700 9px/16px var(--sans); text-align:center; display:none;
+  }
+  @media (max-width:760px){
+    .mobile-bottomnav{display:grid;}
+    .main-content{padding-bottom:calc(74px + env(safe-area-inset-bottom,0px)) !important;}
+  }
+  @media (display-mode:standalone) and (max-width:920px){
+    .mobile-bottomnav{display:grid;}
+    .main-content{padding-bottom:calc(74px + env(safe-area-inset-bottom,0px)) !important;}
+  }
+</style>
 </head>
 <body>
 
@@ -3823,7 +3866,7 @@ window.addEventListener('unhandledrejection', function(e) {
       </div>
       <div class="sidebar-brand-text">
         <strong>BeetoB</strong>
-        <small>FPEE · Réseau · v4.7.0</small>
+        <small>FPEE · Réseau · v4.9.0</small>
       </div>
     </div>
 
@@ -3919,6 +3962,27 @@ window.addEventListener('unhandledrejection', function(e) {
       </div>
     </div>
   </aside>
+
+  <!-- ====== BARRE BASSE MOBILE (mode allégé commercial / PWA) ====== -->
+  <nav class="mobile-bottomnav" aria-label="Navigation mobile">
+    <button class="mnav-tab active" data-section="dashboard" onclick="switchSection('dashboard')">
+      <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="4.5" rx="1.5"/><rect x="13.5" y="10.5" width="7.5" height="10.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg></span>
+      <span>Bord</span>
+    </button>
+    <button class="mnav-tab" data-section="prospects" onclick="switchSection('prospects')">
+      <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.8 19c0-2.9 2.3-4.8 5.2-4.8s5.2 1.9 5.2 4.8"/><path d="M16.2 5.3a3 3 0 0 1 0 5.8"/><path d="M16.6 14.4c2.2.5 3.6 2.1 3.6 4.6"/></svg></span>
+      <span>Prospects</span>
+    </button>
+    <button class="mnav-tab" data-section="affaires" onclick="switchSection('affaires')">
+      <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="4" y2="11"/><line x1="10" y1="20" x2="10" y2="4"/><line x1="16" y1="20" x2="16" y2="14"/><line x1="22" y1="20" x2="22" y2="8"/></svg></span>
+      <span>Pipeline</span>
+    </button>
+    <button class="mnav-tab" data-section="agenda" onclick="switchSection('agenda')">
+      <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2.5" x2="8" y2="6"/><line x1="16" y1="2.5" x2="16" y2="6"/></svg></span>
+      <span>Agenda</span>
+      <span class="mnav-badge" id="mnavAgendaBadge">0</span>
+    </button>
+  </nav>
 
   <!-- ====== MAIN ====== -->
   <div class="main-content">
@@ -4282,6 +4346,9 @@ window.addEventListener('unhandledrejection', function(e) {
       <option value="signe">Signé</option>
       <option value="perdu">Perdu</option>
       <option value="pause">En pause</option>
+    </select>
+    <select id="filterCommercial" style="display:none" title="Filtrer par commercial">
+      <option value="">Tous les commerciaux</option>
     </select>
     <div class="view-toggle" role="group" aria-label="Affichage">
       <button id="viewBtnCards" class="active" onclick="setProspectsView('cards')">🃏 Cartes</button>
@@ -5404,7 +5471,7 @@ let STATE = {
   prospects: [],
   sequenceEmail: [],
   sequenceLinkedin: [],
-  filter: { search: '', stade: '' },
+  filter: { search: '', stade: '', commercialId: '' },
   currentProspect: null,
   currentActionStep: null,
   cost: { calls: 0, tokens: 0 }
@@ -5587,6 +5654,22 @@ let TEAM = { members: [] };
 function applyRoleUI() {
   const nav = document.getElementById('navEquipe');
   if (nav) nav.style.display = (typeof meManagesTeam === 'function' && meManagesTeam()) ? '' : 'none';
+  populateCommercialFilter();
+}
+
+// Remplit le menu "filtrer par commercial" (encadrement uniquement)
+async function populateCommercialFilter() {
+  const sel = document.getElementById('filterCommercial');
+  if (!sel) return;
+  const manager = typeof meManagesTeam === 'function' && meManagesTeam();
+  if (!manager || !cloudReady()) { sel.style.display = 'none'; return; }
+  if (!TEAM.members || !TEAM.members.length) { try { await teamPull(); } catch (e) {} }
+  const coms = (TEAM.members || []).filter(m => m.role === 'commercial');
+  const cur = STATE.filter.commercialId || '';
+  sel.innerHTML = '<option value="">Tous les commerciaux</option>'
+    + '<option value="__none__"' + (cur === '__none__' ? ' selected' : '') + '>— Non affectés —</option>'
+    + coms.map(m => '<option value="' + m.id + '"' + (cur === m.id ? ' selected' : '') + '>' + (m.full_name || m.email) + '</option>').join('');
+  sel.style.display = '';
 }
 
 async function teamPull() {
@@ -5613,7 +5696,7 @@ async function teamCreateCommercial(nom, email, depts) {
   });
   if (error) { try { toast('Création impossible : ' + error.message, 'danger', 7000); } catch (e) {} return; }
   try { toast('✓ Commercial ajouté : ' + (nom || email), 'success'); } catch (e) {}
-  await teamPull(); renderEquipe();
+  await teamPull(); renderEquipe(); populateCommercialFilter();
 }
 
 async function teamSetDepartements(memberId, depts) {
@@ -5654,7 +5737,10 @@ async function prospectAssign(prospectId, memberId) {
     if (error) { try { toast('Attribution impossible : ' + error.message, 'danger'); } catch (e) {} return; }
   } else { scheduleCloudSync(); }
   await saveKey('prospects', STATE.prospects, { skipCloud: true });
-  renderEquipe();
+  if (typeof renderEquipe === 'function') renderEquipe();
+  if (typeof renderProspects === 'function') renderProspects();
+  if (typeof renderAffaires === 'function') renderAffaires();
+  try { toast('Prospect attribué ✓', 'success'); } catch (e) {}
 }
 
 function _deptParse(str) {
@@ -6655,7 +6741,30 @@ Cherche tout ce que tu peux trouver de fiable sur Pappers, Societe.com, LinkedIn
 }
 
 // === INIT ===
+// PWA : rend BeetoB installable sur l'écran d'accueil (icône + manifest générés à la volée)
+function setupPWA() {
+  try {
+    const icon = (size) => {
+      const cv = document.createElement('canvas'); cv.width = cv.height = size;
+      const x = cv.getContext('2d');
+      const g = x.createLinearGradient(0, 0, size, size); g.addColorStop(0, '#0a5aa0'); g.addColorStop(1, '#003a66');
+      const r = size * .22; x.fillStyle = g;
+      x.beginPath(); x.moveTo(r, 0); x.arcTo(size, 0, size, size, r); x.arcTo(size, size, 0, size, r); x.arcTo(0, size, 0, 0, r); x.arcTo(0, 0, size, 0, r); x.fill();
+      x.fillStyle = '#ffd23f'; x.font = 'bold ' + (size * .52) + 'px Inter,Arial,sans-serif';
+      x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('B', size / 2, size * .55);
+      return cv.toDataURL('image/png');
+    };
+    const i180 = icon(180), i512 = icon(512);
+    let l = document.querySelector('link[rel="apple-touch-icon"]'); if (!l) { l = document.createElement('link'); l.rel = 'apple-touch-icon'; document.head.appendChild(l); } l.href = i180;
+    const manifest = { name: 'BeetoB — Prospection FPEE', short_name: 'BeetoB', start_url: '.', scope: '.', display: 'standalone', orientation: 'portrait', background_color: '#0b1a2b', theme_color: '#003a66', icons: [{ src: i180, sizes: '180x180', type: 'image/png' }, { src: i512, sizes: '512x512', type: 'image/png', purpose: 'any maskable' }] };
+    const ml = document.createElement('link'); ml.rel = 'manifest';
+    ml.href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' }));
+    document.head.appendChild(ml);
+  } catch (e) { console.warn('setupPWA', e); }
+}
+
 async function init() {
+  setupPWA();
   // SAFETY: forcer la fermeture de tous les overlays qui pourraient bloquer les clics
   document.getElementById('sidebarBackdrop')?.classList.remove('show');
   document.getElementById('sidebar')?.classList.remove('open');
@@ -6711,6 +6820,7 @@ async function init() {
 
   document.getElementById('searchInput').addEventListener('input', e => { STATE.filter.search = e.target.value.toLowerCase(); renderProspects(); });
   document.getElementById('filterStade').addEventListener('change', e => { STATE.filter.stade = e.target.value; renderProspects(); });
+  { const fc = document.getElementById('filterCommercial'); if (fc) fc.addEventListener('change', e => { STATE.filter.commercialId = e.target.value; renderProspects(); if (typeof renderAffaires === 'function') renderAffaires(); if (typeof renderDashboard === 'function') renderDashboard(); if (typeof renderAgenda === 'function') renderAgenda(); if (typeof updateAgendaBadge === 'function') updateAgendaBadge(); }); }
 
   renderAll();
   renderSearchHistory();
@@ -6798,6 +6908,8 @@ function switchSection(name) {
   if (sec) sec.classList.add('active');
   const btn = document.querySelector(`.nav-tab[data-section="${name}"]`);
   if (btn) btn.classList.add('active');
+  // Barre basse mobile : on reflète la section active (les 4 onglets essentiels)
+  document.querySelectorAll('.mnav-tab').forEach(b => b.classList.toggle('active', b.dataset.section === name));
   if (name === 'connexions') renderConnections();
   if (name === 'carte') renderCarte();
   if (name === 'signaux') sf_render();
@@ -6969,7 +7081,7 @@ function renderAll() {
   renderProspects();
   renderSequences();
   if (typeof renderAffaires === 'function') renderAffaires();
-  document.getElementById('countProspects').textContent = STATE.prospects.length;
+  document.getElementById('countProspects').textContent = scopedProspects().length;
   if (typeof renderBackupStatus === 'function') renderBackupStatus();
   if (typeof updateAgendaBadge === 'function') updateAgendaBadge();
 }
@@ -7016,13 +7128,14 @@ function renderDashboard() {
     heroGreetingEl.textContent = firstName ? `${greeting} ${firstName}` : greeting;
   }
 
-  // === Métriques globales ===
-  const total = STATE.prospects.length;
-  const pepites = STATE.prospects.filter(p => (p.score || 0) >= 65);
-  const emailDue = STATE.prospects.filter(p => isDueToday(p, 'email'));
-  const liDue = STATE.prospects.filter(p => isDueToday(p, 'linkedin'));
+  // === Métriques globales (périmètre = vue commercial sélectionnée) ===
+  const SP = scopedProspects();
+  const total = SP.length;
+  const pepites = SP.filter(p => (p.score || 0) >= 65);
+  const emailDue = SP.filter(p => isDueToday(p, 'email'));
+  const liDue = SP.filter(p => isDueToday(p, 'linkedin'));
   const actionsCount = emailDue.length + liDue.length;
-  const rdv = STATE.prospects.filter(p => p.stade === 'rdv');
+  const rdv = SP.filter(p => p.stade === 'rdv');
 
   // === Hero title dynamique ===
   const heroTitle = document.getElementById('heroTitle');
@@ -7048,7 +7161,7 @@ function renderDashboard() {
 
   // CA pipeline estimé (estimation prudente : 80k€ par concessionnaire signé moyen)
   const CA_PER_CONCESSION = 80000;
-  const qualifiedCount = STATE.prospects.filter(p => ['qualifie','contacte','rdv','devis'].includes(p.stade) || (p.score||0) >= 50).length;
+  const qualifiedCount = SP.filter(p => ['qualifie','contacte','rdv','devis'].includes(p.stade) || (p.score||0) >= 50).length;
   const caEstime = qualifiedCount * CA_PER_CONCESSION * 0.20; // 20% de taux de transformation moyen
   const kpiCa = document.getElementById('kpiCa');
   if (kpiCa) kpiCa.textContent = formatCurrency(caEstime);
@@ -7070,7 +7183,7 @@ function renderDashboard() {
     }
     if (kpiObjSub) kpiObjSub.textContent = `${formatCurrency(caEstime)} / ${formatCurrency(caObjectif)}`;
   } else if (concObjectif > 0) {
-    const signed = STATE.prospects.filter(p => p.stade === 'signe').length;
+    const signed = SP.filter(p => p.stade === 'signe').length;
     const pct = Math.min(100, Math.round((signed / concObjectif) * 100));
     if (kpiObjPct) kpiObjPct.textContent = pct + '%';
     if (kpiObjBar) kpiObjBar.style.width = pct + '%';
@@ -7083,12 +7196,12 @@ function renderDashboard() {
 
   // === Funnel ===
   const stageCounts = {
-    prospect: STATE.prospects.filter(p => !p.stade || p.stade === 'froid').length,
-    qualifie: STATE.prospects.filter(p => p.stade === 'qualifie' || (p.score && p.score >= 50 && (!p.stade || p.stade === 'froid'))).length,
-    contacte: STATE.prospects.filter(p => p.stade === 'contacte' || p.stade === 'repondu').length,
-    rdv: STATE.prospects.filter(p => p.stade === 'rdv').length,
-    devis: STATE.prospects.filter(p => p.stade === 'devis').length,
-    signe: STATE.prospects.filter(p => p.stade === 'signe').length
+    prospect: SP.filter(p => !p.stade || p.stade === 'froid').length,
+    qualifie: SP.filter(p => p.stade === 'qualifie' || (p.score && p.score >= 50 && (!p.stade || p.stade === 'froid'))).length,
+    contacte: SP.filter(p => p.stade === 'contacte' || p.stade === 'repondu').length,
+    rdv: SP.filter(p => p.stade === 'rdv').length,
+    devis: SP.filter(p => p.stade === 'devis').length,
+    signe: SP.filter(p => p.stade === 'signe').length
   };
   setText('funProspect', stageCounts.prospect);
   setText('funQualifie', stageCounts.qualifie);
@@ -7182,8 +7295,8 @@ function renderWidgetZone(profile) {
     `;
     return;
   }
-  // Compteurs sur la zone
-  const inZone = STATE.prospects.filter(p => {
+  // Compteurs sur la zone (périmètre = vue commercial sélectionnée)
+  const inZone = scopedProspects().filter(p => {
     const cp = (p.cp || '').toString();
     if (cp.length >= 2) {
       const dept = cp.substring(0, 2);
@@ -7283,8 +7396,20 @@ function renderProspects() {
   else renderProspectsCards();
 }
 
+// Périmètre affiché : la RLS borne déjà un commercial à ses prospects.
+// Pour l'encadrement, le filtre "commercial" permet de zoomer sur un portefeuille.
+function scopedProspects() {
+  let arr = STATE.prospects;
+  const fc = STATE.filter.commercialId;
+  if (typeof meManagesTeam === 'function' && meManagesTeam() && fc) {
+    if (fc === '__none__') arr = arr.filter(p => !p._commercialId);
+    else arr = arr.filter(p => p._commercialId === fc);
+  }
+  return arr;
+}
+
 function getProspectRows() {
-  let rows = STATE.prospects.slice();
+  let rows = scopedProspects().slice();
   if (STATE.filter.search) {
     const q = STATE.filter.search;
     rows = rows.filter(p =>
@@ -7313,7 +7438,7 @@ function setProspectStade(id, stade) {
   saveKey('prospects', STATE.prospects);
   renderProspects();
   if (typeof renderDashboard === 'function') renderDashboard();
-  document.getElementById('countProspects').textContent = STATE.prospects.length;
+  document.getElementById('countProspects').textContent = scopedProspects().length;
   if (typeof renderAffaires === 'function') renderAffaires();
   toast('Étape mise à jour : ' + stadeLabel(stade));
 }
@@ -7357,8 +7482,9 @@ function renderAffaires() {
   const kanEl = document.getElementById('affaires_kanban');
   if (!kanEl) return;
   const statEl = document.getElementById('affaires_stats');
-  const actifs = STATE.prospects.filter(p => PIPE_STAGES.includes(p.stade) && p.stade !== 'signe');
-  const signes = STATE.prospects.filter(p => p.stade === 'signe');
+  const scoped = scopedProspects();
+  const actifs = scoped.filter(p => PIPE_STAGES.includes(p.stade) && p.stade !== 'signe');
+  const signes = scoped.filter(p => p.stade === 'signe');
   let pond = 0; actifs.forEach(p => { pond += (p.montant||0) * (PIPE_PROBA[p.stade]||0); });
   let totalSigne = 0; signes.forEach(p => { totalSigne += (p.montant||0); });
   const sommeil = actifs.filter(affaireAsleep).length;
@@ -7370,7 +7496,7 @@ function renderAffaires() {
       plStat(sommeil, 'en sommeil', sommeil > 0);
   }
   kanEl.innerHTML = PIPE_STAGES.map(st => {
-    const cards = STATE.prospects.filter(p => p.stade === st).sort((a,b) => (b.montant||0) - (a.montant||0));
+    const cards = scoped.filter(p => p.stade === st).sort((a,b) => (b.montant||0) - (a.montant||0));
     const colVal = cards.reduce((s,p) => s + (p.montant||0), 0);
     const inner = cards.length ? cards.map(kanCard).join('') : '<div class="kan-empty">—</div>';
     return `<div class="kan-col" data-stade="${st}" ondragover="kanAllow(event)" ondragleave="kanLeave(event)" ondrop="kanDrop(event,'${st}')">
@@ -7569,17 +7695,20 @@ function ymd(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2
 // Tous les évènements datés issus des prospects (prochaine action + clôture)
 function agendaEvents() {
   const evs = [];
-  (STATE.prospects || []).forEach(p => {
+  (scopedProspects() || []).forEach(p => {
     if (p.nextAction && p.nextAction.text && p.nextAction.date) evs.push({ date: p.nextAction.date, type: 'action', label: p.nextAction.text, p });
     if (p.closeDate) evs.push({ date: p.closeDate, type: 'close', label: 'Clôture prévue' + (p.montant ? ' · ' + formatCurrency(p.montant) : ''), p });
   });
   return evs;
 }
 function agendaEventsByDay() { const m = {}; agendaEvents().forEach(e => { (m[e.date] = m[e.date] || []).push(e); }); return m; }
-function agendaDueCount() { const t = today(); return (STATE.prospects || []).filter(p => p.nextAction && p.nextAction.text && p.nextAction.date && parseDate(p.nextAction.date) <= t).length; }
+function agendaDueCount() { const t = today(); return (scopedProspects() || []).filter(p => p.nextAction && p.nextAction.text && p.nextAction.date && parseDate(p.nextAction.date) <= t).length; }
 function updateAgendaBadge() {
-  const el = document.getElementById('countAgenda'); if (!el) return;
-  const n = agendaDueCount(); el.textContent = n; el.style.display = n > 0 ? '' : 'none';
+  const n = agendaDueCount();
+  const el = document.getElementById('countAgenda');
+  if (el) { el.textContent = n; el.style.display = n > 0 ? '' : 'none'; }
+  const m = document.getElementById('mnavAgendaBadge');
+  if (m) { m.textContent = n > 99 ? '99+' : n; m.style.display = n > 0 ? 'block' : 'none'; }
 }
 
 function agendaSetView(v) { AGENDA.view = v; renderAgenda(); }
@@ -7893,6 +8022,20 @@ function renderProspectModal(p) {
       ).join('')}
     </div>` : '';
 
+  // ---- Sélecteur "commercial en charge" (encadrement, fiche existante) ----
+  const _isMgr = (typeof meManagesTeam === 'function' && meManagesTeam());
+  const _coms = (_isMgr && Array.isArray(TEAM.members)) ? TEAM.members.filter(m => m.role === 'commercial') : [];
+  const commercialRow = (_isMgr && isExisting) ? `
+      <div class="form-row">
+        <div class="field"><label>👤 Commercial en charge</label>
+          <select id="f_commercial" onchange="prospectAssign('${p.id}', this.value)">
+            <option value="">— Non affecté —</option>
+            ${_coms.map(m => `<option value="${m.id}" ${p._commercialId === m.id ? 'selected' : ''}>${escapeHtml(m.full_name || m.email)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"></div>
+      </div>` : '';
+
   // ---- Bloc "Action à mener & Pipeline" : mis en avant ----
   const actionCard = `
     <div style="border:2px solid var(--fpee-blue);border-radius:12px;padding:14px 16px;margin-bottom:18px;background:var(--paper-warm);">
@@ -7911,6 +8054,7 @@ function renderProspectModal(p) {
         <div class="field"><label>💶 Montant estimé (€)</label><input id="f_montant" type="number" min="0" step="100" value="${p.montant || ''}" placeholder="Ex : 25000"></div>
         <div class="field"><label>📅 Clôture prévue</label><input id="f_closedate" type="date" value="${escapeAttr(p.closeDate || '')}"></div>
       </div>
+      ${commercialRow}
     </div>`;
 
   // ---- Champs d'identité ----
