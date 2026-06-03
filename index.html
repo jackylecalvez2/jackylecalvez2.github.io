@@ -759,18 +759,34 @@ function applyDet(det){
     if(d&&(!d.value||d.value===today))d.value=det.dateISO;} // n'écrase pas une date déjà saisie
   if(det.category){document.querySelectorAll('#catChips .chip').forEach(c=>c.classList.toggle('on',c.dataset.k===det.category));applyUnit();}
 }
+// OCR serveur (Azure Document Intelligence via Edge Function) — renvoie la même forme que detectAll
+async function cloudOCR(imageData){
+  try{
+    const sess=await sbSession();const tok=sess?.access_token;if(!tok)return null;
+    const r=await fetch(BACKEND.url+'/functions/v1/ocr-ndf',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},
+      body:JSON.stringify({imageBase64:imageData})});
+    if(!r.ok)return null;
+    const d=await r.json();if(!d||!d.ok)return null;
+    let category=null,best=0;const t=norm((d.merchant||'')+' '+(d.content||''));
+    for(const[cat,kws]of CATKW){const sc=kws.reduce((a,k)=>a+(t.includes(k)?1:0),0);if(sc>best){best=sc;category=cat;}}
+    return {amount:(d.total!=null?d.total:null),dateISO:d.date||null,category,tva:(d.tva!=null?d.tva:null),merchant:d.merchant||null,confidence:d.confidence,_engine:'azure'};
+  }catch(e){console.warn('cloudOCR',e);return null;}
+}
 async function runScan(){
   const bar=document.getElementById('scanBar');if(!bar||!_draft)return;
   bar.innerHTML='<span class="ocrbtn"><span class="spin"></span>Analyse du ticket…</span>';
   try{
     let src=_draft.imageData;if(_draft.ocrPromise){try{const o=await _draft.ocrPromise;if(o)src=o;}catch(e){}}
-    const text=await ocrRecognize(src);
-    const det=detectAll(text);
+    let det=null;
+    if(cloudReady()){try{det=await cloudOCR(_draft.imageData);}catch(e){det=null;}}   // Azure (serveur) d'abord
+    if(!det){const text=await ocrRecognize(src);det=detectAll(text);}                  // filet offline : Tesseract
     applyDet(det); // applique direct date/montant/catégorie (plus besoin de toucher chaque puce)
-    let chips='<div class="scanttl">✨ Détecté et appliqué — corrigez les champs si besoin</div>';let any=false;
+    let chips='<div class="scanttl">'+(det&&det._engine==='azure'?'✨ Lu par IA (Azure) — corrigez si besoin':'✨ Détecté et appliqué — corrigez les champs si besoin')+'</div>';let any=false;
     if(det.amount){any=true;chips+='<button type="button" class="scanchip" data-act="amt" data-v="'+det.amount+'">Montant : '+eur(det.amount)+' €</button>';}
     if(det.dateISO){any=true;chips+='<button type="button" class="scanchip" data-act="date" data-v="'+det.dateISO+'">Date : '+fmtDateFR(det.dateISO)+'</button>';}
     if(det.category){any=true;chips+='<button type="button" class="scanchip" data-act="cat" data-v="'+det.category+'">Catégorie : '+det.category+'</button>';}
+    if(det.tva){any=true;chips+='<span class="scanchip dim" style="cursor:default">TVA : '+eur(det.tva)+' €</span>';}
     chips+='<button type="button" class="ocrbtn" id="rescan">↻ Relancer</button>';
     bar.innerHTML=any?chips:'<span class="scanchip dim">Rien détecté — saisie manuelle</span><button type="button" class="ocrbtn" id="rescan">↻ Relancer</button>';
     bar.querySelectorAll('.scanchip[data-act]').forEach(b=>b.onclick=()=>{
