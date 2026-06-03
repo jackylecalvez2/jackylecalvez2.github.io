@@ -3866,7 +3866,7 @@ window.addEventListener('unhandledrejection', function(e) {
       </div>
       <div class="sidebar-brand-text">
         <strong>BeetoB</strong>
-        <small>FPEE · Réseau · v4.9.1</small>
+        <small>FPEE · Réseau · v4.9.2</small>
       </div>
     </div>
 
@@ -11907,7 +11907,7 @@ function showLoginOverlay() {
     + '<input id="loginEmail" type="email" autocomplete="email" placeholder="ton.email@fpee.fr" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #d0d7de;border-radius:10px;font-size:15px;margin-bottom:12px;">'
     + '<button id="loginBtn" style="width:100%;padding:12px;background:#0078C8;color:#fff;border:0;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">Recevoir mon code</button>'
     + '<div id="loginCodeWrap" style="display:none;margin-top:14px;">'
-    +   '<input id="loginCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Code à 6 chiffres" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #d0d7de;border-radius:10px;font-size:19px;letter-spacing:5px;text-align:center;margin-bottom:10px;">'
+    +   '<input id="loginCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Code reçu par e-mail" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #d0d7de;border-radius:10px;font-size:19px;letter-spacing:5px;text-align:center;margin-bottom:10px;">'
     +   '<button id="loginVerifyBtn" style="width:100%;padding:12px;background:#1a7f37;color:#fff;border:0;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">Me connecter</button>'
     + '</div>'
     + '<div id="loginMsg" style="font-size:12.5px;color:#667;margin-top:14px;min-height:18px;"></div></div>';
@@ -11929,7 +11929,7 @@ async function sendMagicLink() {
   window._beetobLoginEmail = email;
   const wrap = document.getElementById('loginCodeWrap'); if (wrap) wrap.style.display = 'block';
   const cf = document.getElementById('loginCode'); if (cf) cf.focus();
-  msg.innerHTML = '✅ E-mail envoyé. Sur iPhone : saisis le <strong>code à 6 chiffres</strong> reçu, ci-dessus (l\'appli installée ne suit pas le lien). Sur ordinateur, le lien fonctionne aussi.';
+  msg.innerHTML = '✅ E-mail envoyé. Sur iPhone : saisis le <strong>code reçu</strong> ci-dessus (l\'appli installée ne suit pas le lien). Sur ordinateur, le lien fonctionne aussi.';
   msg.style.color = '#1a7f37';
 }
 async function verifyCode() {
@@ -11937,7 +11937,7 @@ async function verifyCode() {
   const email = window._beetobLoginEmail || (document.getElementById('loginEmail').value || '').trim().toLowerCase();
   const token = (document.getElementById('loginCode').value || '').replace(/\D/g, '');
   const msg = document.getElementById('loginMsg');
-  if (token.length < 6) { msg.textContent = 'Entre le code à 6 chiffres reçu par e-mail.'; msg.style.color = '#DC3545'; return; }
+  if (token.length < 6) { msg.textContent = 'Entre le code reçu par e-mail.'; msg.style.color = '#DC3545'; return; }
   msg.textContent = 'Vérification…'; msg.style.color = '#667';
   const { error } = await c.auth.verifyOtp({ email, token, type: 'email' });
   if (error) { msg.textContent = 'Code invalide ou expiré : ' + error.message; msg.style.color = '#DC3545'; return; }
