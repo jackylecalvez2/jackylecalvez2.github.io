@@ -1270,22 +1270,44 @@ function showLoginOverlay(){
     +'<div style="font-size:24px;font-weight:800;color:#1B3A6B;margin-bottom:2px;">Notes de frais</div>'
     +'<div style="font-size:12.5px;color:#667;margin-bottom:22px;">Groupe FPEE · connexion sécurisée</div>'
     +'<input id="ndfLoginEmail" type="email" autocomplete="email" placeholder="ton.email@fpee.fr" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #d0d7de;border-radius:10px;font-size:15px;margin-bottom:12px;">'
-    +'<button id="ndfLoginBtn" style="width:100%;padding:12px;background:#1B3A6B;color:#fff;border:0;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">Recevoir mon lien de connexion</button>'
+    +'<button id="ndfLoginBtn" style="width:100%;padding:12px;background:#1B3A6B;color:#fff;border:0;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">Recevoir mon code</button>'
+    +'<div id="ndfCodeWrap" style="display:none;margin-top:14px;">'
+    +  '<input id="ndfLoginCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Code reçu par e-mail" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #d0d7de;border-radius:10px;font-size:19px;letter-spacing:5px;text-align:center;margin-bottom:10px;">'
+    +  '<button id="ndfVerifyBtn" style="width:100%;padding:12px;background:#1a7f37;color:#fff;border:0;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">Me connecter</button>'
+    +'</div>'
     +'<div id="ndfLoginMsg" style="font-size:12.5px;color:#667;margin-top:14px;min-height:18px;"></div></div>';
   document.body.appendChild(ov);
   document.getElementById('ndfLoginBtn').addEventListener('click',sendMagicLink);
   document.getElementById('ndfLoginEmail').addEventListener('keydown',e=>{if(e.key==='Enter')sendMagicLink();});
+  document.getElementById('ndfVerifyBtn').addEventListener('click',verifyCode);
+  document.getElementById('ndfLoginCode').addEventListener('keydown',e=>{if(e.key==='Enter')verifyCode();});
 }
 function hideLoginOverlay(){const el=document.getElementById('ndfLogin');if(el)el.style.display='none';}
 async function sendMagicLink(){
   const c=sbClient();if(!c)return;
-  const email=(document.getElementById('ndfLoginEmail').value||'').trim();
+  const email=(document.getElementById('ndfLoginEmail').value||'').trim().toLowerCase();
   const msg=document.getElementById('ndfLoginMsg');
   if(!email||!/.+@.+\..+/.test(email)){msg.textContent='Entre un e-mail valide.';msg.style.color='#DC3545';return;}
   msg.textContent='Envoi en cours…';msg.style.color='#667';
   const{error}=await c.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
-  if(error){msg.textContent='Erreur : '+error.message;msg.style.color='#DC3545';}
-  else{msg.innerHTML='✅ Lien envoyé ! Ouvre ton e-mail et clique sur le lien.';msg.style.color='#1a7f37';}
+  if(error){msg.textContent='Erreur : '+error.message;msg.style.color='#DC3545';return;}
+  window._ndfLoginEmail=email;
+  const wrap=document.getElementById('ndfCodeWrap');if(wrap)wrap.style.display='block';
+  const cf=document.getElementById('ndfLoginCode');if(cf)cf.focus();
+  msg.innerHTML='✅ E-mail envoyé. Sur iPhone : saisis le <strong>code reçu</strong> ci-dessus (l\'appli installée ne suit pas le lien). Sur ordinateur, le lien fonctionne aussi.';
+  msg.style.color='#1a7f37';
+}
+async function verifyCode(){
+  const c=sbClient();if(!c)return;
+  const email=window._ndfLoginEmail||(document.getElementById('ndfLoginEmail').value||'').trim().toLowerCase();
+  const token=(document.getElementById('ndfLoginCode').value||'').replace(/\D/g,'');
+  const msg=document.getElementById('ndfLoginMsg');
+  if(token.length<6){msg.textContent='Entre le code reçu par e-mail.';msg.style.color='#DC3545';return;}
+  msg.textContent='Vérification…';msg.style.color='#667';
+  const{error}=await c.auth.verifyOtp({email,token,type:'email'});
+  if(error){msg.textContent='Code invalide ou expiré : '+error.message;msg.style.color='#DC3545';return;}
+  msg.textContent='✅ Connecté !';msg.style.color='#1a7f37';
+  if(!_ndfBooted)_doBootNDF();
 }
 
 /* ---------- Démarrage : session obligatoire avant d'ouvrir l'app ---------- */
