@@ -1357,6 +1357,8 @@ async function bootNDF(){
   const session=await sbSession();
   if(session)_doBootNDF();else if(!_ndfBooted)showLoginOverlay();
 }
+// Service worker : l'appli installée récupère toujours la dernière version (pas de réinstallation).
+if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js').catch(()=>{});});}
 bootNDF();
 </script>
 </body>
