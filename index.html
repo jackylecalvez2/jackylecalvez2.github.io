@@ -535,8 +535,9 @@ function renderList(){
       '<div class="amt"><div class="e">'+val+'</div></div></div>';
   });
   box.innerHTML=html;
-  exp.filter(e=>e.hasImage).forEach(async e=>{const data=await DB.get('img',e.id);const el=document.getElementById('th_'+e.id);
-    if(data&&el){if(e.imageType==='pdf')el.textContent='📄';else el.innerHTML='<img src="'+data+'">';}});
+  exp.filter(e=>e.hasImage).forEach(async e=>{const a=await getImgs(e.id,e);const el=document.getElementById('th_'+e.id);
+    if(a.length&&el){const f=a[0];el.innerHTML=(f.imageType==='pdf')?'📄':'<img src="'+f.imageData+'">';
+      const n=Math.max(a.length,e.imgCount||0);if(n>1)el.innerHTML+='<span style="position:absolute;top:-4px;right:-4px;background:#1B3A6B;color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;line-height:16px;text-align:center;border-radius:8px;padding:0 3px">+'+(n-1)+'</span>';}});
   box.querySelectorAll('.eitem').forEach(el=>el.onclick=()=>openExpense(el.dataset.id));
 }
 function renderMore(){
@@ -569,13 +570,23 @@ function openSheet(title,bodyHTML,saveFn,saveLabel){
   document.getElementById('sheetSave').textContent=saveLabel||'Enregistrer';
   document.getElementById('sheetSave').style.visibility=saveFn?'visible':'hidden';
   sheetSaveFn=saveFn;scrim.classList.add('show');sheet.classList.add('show');}
-function closeSheet(){sheet.classList.remove('show');scrim.classList.remove('show');sheetSaveFn=null;_draft=null;}
+function closeSheet(){sheet.classList.remove('show');scrim.classList.remove('show');sheetSaveFn=null;_draftImgs=[];_ocrP=null;}
 document.getElementById('sheetCancel').onclick=closeSheet;
 scrim.onclick=closeSheet;
 document.getElementById('sheetSave').onclick=()=>{if(sheetSaveFn)sheetSaveFn();};
 
 /* ---------- Ajout / édition frais ---------- */
-let _draft=null;
+let _draftImgs=[];   // justificatifs en cours d'édition : [{imageData, imageType}] — plusieurs par frais
+let _ocrP=null;      // promesse OCR (image prétraitée) du 1er justificatif image
+// Normalise la valeur stockée en IndexedDB → tableau {imageData,imageType}.
+// Rétro-compat : un frais existant a une string unique (1 image) ; on l'enveloppe.
+function _imgsNorm(raw,e){
+  if(!raw)return[];
+  if(typeof raw==='string')return[{imageData:raw,imageType:(e&&e.imageType)||'img'}];
+  if(Array.isArray(raw))return raw.map(x=>typeof x==='string'?{imageData:x,imageType:'img'}:{imageData:x.imageData||x.d,imageType:x.imageType||x.t||'img'}).filter(x=>x.imageData);
+  return[];
+}
+async function getImgs(id,e){return _imgsNorm(await DB.get('img',id),e);}
 function expenseForm(cur,isEdit){
   cur=cur||{};const cat=cur.categorie||'Repas';
   return ''+
@@ -611,19 +622,34 @@ function wireExpenseForm(existing){
   document.getElementById('bLib').onclick=()=>document.getElementById('fileLib').click();
   document.getElementById('bPaste').onclick=pasteImage;
   if(existing){document.getElementById('delExp').onclick=()=>delExpense(existing.id);
-    if(existing.hasImage)DB.get('img',existing.id).then(d=>{if(d){_draft={imageData:d,imageType:existing.imageType};showPreview(false);}});}
+    if(existing.hasImage)getImgs(existing.id,existing).then(a=>{if(a.length){_draftImgs=a;showPreview(false);}});}
 }
 function showPreview(autoScan){
   const box=document.getElementById('previewBox');const bar=document.getElementById('scanBar');
-  if(!_draft||!_draft.imageData){box.innerHTML='';bar.innerHTML='';return;}
-  if(_draft.imageType==='pdf'){box.innerHTML='<div class="preview"><div class="pdfbox">📄 Justificatif PDF joint<button class="rm" id="rmImg">×</button></div></div>';bar.innerHTML='';}
-  else{box.innerHTML='<div class="preview"><img src="'+_draft.imageData+'"><button class="rm" id="rmImg">×</button></div>';
-    if(autoScan)runScan();else bar.innerHTML='<button type="button" class="ocrbtn" id="ocrBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7V4h3M20 7V4h-3M4 17v3h3M20 17v3h-3"/><path d="M7 12h10"/></svg>Analyser le ticket</button>';}
-  const rm=document.getElementById('rmImg');if(rm)rm.onclick=()=>{_draft=null;showPreview(false);};
-  const ob=document.getElementById('ocrBtn');if(ob)ob.onclick=runScan;
+  if(!box)return;
+  if(!_draftImgs.length){box.innerHTML='';if(bar)bar.innerHTML='';return;}
+  if(_draftImgs.length===1){
+    const im=_draftImgs[0];
+    box.innerHTML=im.imageType==='pdf'
+      ?'<div class="preview"><div class="pdfbox">📄 Justificatif PDF joint<button class="rm" data-i="0">×</button></div></div>'
+      :'<div class="preview"><img src="'+im.imageData+'"><button class="rm" data-i="0">×</button></div>';
+  }else{
+    box.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:13px">'+_draftImgs.map((im,i)=>
+      '<div class="preview" style="margin-top:0;width:92px;height:92px;flex:none">'+
+      (im.imageType==='pdf'?'<div class="pdfbox" style="height:100%;display:flex;align-items:center;justify-content:center;font-size:12px">📄 PDF</div>':'<img src="'+im.imageData+'" style="width:100%;height:100%;object-fit:cover">')+
+      '<button class="rm" data-i="'+i+'">×</button></div>').join('')+
+      '<div style="font-size:12px;color:var(--muted,#888);width:100%;margin-top:2px">'+_draftImgs.length+' justificatifs — ajoute-en d\'autres avec Photo / Galerie / Coller</div></div>';
+  }
+  box.querySelectorAll('.rm').forEach(b=>b.onclick=()=>{_draftImgs.splice(+b.dataset.i,1);if(!_draftImgs.some(x=>x.imageType==='img'))_ocrP=null;showPreview(false);});
+  if(bar){
+    const hasImg=_draftImgs.some(im=>im.imageType==='img');
+    if(hasImg&&autoScan){runScan();}
+    else if(hasImg){bar.innerHTML='<button type="button" class="ocrbtn" id="ocrBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7V4h3M20 7V4h-3M4 17v3h3M20 17v3h-3"/><path d="M7 12h10"/></svg>Analyser le ticket</button>';const ob=document.getElementById('ocrBtn');if(ob)ob.onclick=runScan;}
+    else bar.innerHTML='';
+  }
 }
-function openAddExpense(){_draft=null;openSheet('Nouveau frais',expenseForm(null,false),saveExpenseDraft);wireExpenseForm(null);}
-function openExpense(id){const e=state.expenses.find(x=>x.id===id);if(!e)return;_draft=null;
+function openAddExpense(){_draftImgs=[];_ocrP=null;openSheet('Nouveau frais',expenseForm(null,false),saveExpenseDraft);wireExpenseForm(null);}
+function openExpense(id){const e=state.expenses.find(x=>x.id===id);if(!e)return;_draftImgs=[];_ocrP=null;
   openSheet('Modifier le frais',expenseForm(e,true),()=>saveExpenseDraft(id));wireExpenseForm(e);}
 async function saveExpenseDraft(id){
   const cat=document.querySelector('#catChips .chip.on').dataset.k;
@@ -632,14 +658,15 @@ async function saveExpenseDraft(id){
   if(montant<=0){toast('Indiquez un montant supérieur à 0');return;}
   const mission=document.getElementById('fMission').value.trim();
   const intitule=document.getElementById('fIntitule').value.trim();
-  const hasImage=!!(_draft&&_draft.imageData);
+  const hasImage=_draftImgs.length>0;
+  const imageType=hasImage?_draftImgs[0].imageType:null;
   const dup=state.expenses.some(x=>x.id!==id&&x.date===date&&x.categorie===cat&&Math.round(x.montant*100)===Math.round(montant*100));
   if(id){const e=state.expenses.find(x=>x.id===id);
-    Object.assign(e,{categorie:cat,montant,date,mission,intitule,hasImage,imageType:_draft?_draft.imageType:null});
-    if(hasImage)await DB.set('img',id,_draft.imageData);else await DB.del('img',id);
+    Object.assign(e,{categorie:cat,montant,date,mission,intitule,hasImage,imageType,imgCount:_draftImgs.length});
+    if(hasImage)await DB.set('img',id,_draftImgs);else await DB.del('img',id);
   }else{const nid=uid();
-    state.expenses.push({id:nid,_c:Date.now(),categorie:cat,montant,date,mission,intitule,hasImage,imageType:_draft?_draft.imageType:null});
-    if(hasImage)await DB.set('img',nid,_draft.imageData);}
+    state.expenses.push({id:nid,_c:Date.now(),categorie:cat,montant,date,mission,intitule,hasImage,imageType,imgCount:_draftImgs.length});
+    if(hasImage)await DB.set('img',nid,_draftImgs);}
   const _sid=id||(state.expenses.length?state.expenses[state.expenses.length-1].id:null);
   await save();selMonth=date.slice(0,7);closeSheet();render();
   if(cloudReady()&&_sid){const _e=state.expenses.find(x=>x.id===_sid);if(_e)cloudUpsert(_e).then(()=>save());}
@@ -654,9 +681,11 @@ function compressImage(file){return new Promise((res,rej)=>{const r=new FileRead
     const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(img,0,0,w,h);
     res(cv.toDataURL('image/jpeg',0.72));};img.onerror=rej;img.src=r.result;};r.onerror=rej;r.readAsDataURL(file);});}
 function handleFile(file){if(!file)return;
-  if(file.type==='application/pdf'){const r=new FileReader();r.onload=()=>{_draft={imageData:r.result,imageType:'pdf'};showPreview(false);};r.readAsDataURL(file);return;}
-  const ocrP=prepOCR(file);
-  compressImage(file).then(d=>{_draft={imageData:d,imageType:'img',ocrPromise:ocrP};showPreview(true);});}
+  if(file.type==='application/pdf'){const r=new FileReader();r.onload=()=>{_draftImgs.push({imageData:r.result,imageType:'pdf'});showPreview(false);};r.readAsDataURL(file);return;}
+  // OCR (auto-scan) uniquement sur le 1er justificatif image ; les suivants s'ajoutent sans réanalyser
+  const firstImage=!_draftImgs.some(im=>im.imageType==='img');
+  const ocrP=firstImage?prepOCR(file):null;
+  compressImage(file).then(d=>{_draftImgs.push({imageData:d,imageType:'img'});if(firstImage)_ocrP=ocrP;showPreview(firstImage);});}
 document.getElementById('fileCam').onchange=e=>{handleFile(e.target.files[0]);e.target.value='';};
 document.getElementById('fileLib').onchange=e=>{handleFile(e.target.files[0]);e.target.value='';};
 /* Coller une capture d'écran depuis le presse-papiers (iOS Safari : demande "Coller"). */
@@ -774,12 +803,12 @@ async function cloudOCR(imageData){
   }catch(e){console.warn('cloudOCR',e);return null;}
 }
 async function runScan(){
-  const bar=document.getElementById('scanBar');if(!bar||!_draft)return;
+  const bar=document.getElementById('scanBar');const first=_draftImgs.find(im=>im.imageType==='img');if(!bar||!first)return;
   bar.innerHTML='<span class="ocrbtn"><span class="spin"></span>Analyse du ticket…</span>';
   try{
-    let src=_draft.imageData;if(_draft.ocrPromise){try{const o=await _draft.ocrPromise;if(o)src=o;}catch(e){}}
+    let src=first.imageData;if(_ocrP){try{const o=await _ocrP;if(o)src=o;}catch(e){}}
     let det=null;
-    if(cloudReady()){try{det=await cloudOCR(_draft.imageData);}catch(e){det=null;}}   // Azure (serveur) d'abord
+    if(cloudReady()){try{det=await cloudOCR(first.imageData);}catch(e){det=null;}}   // Azure (serveur) d'abord
     if(!det){const text=await ocrRecognize(src);det=detectAll(text);}                  // filet offline : Tesseract
     applyDet(det); // applique direct date/montant/catégorie (plus besoin de toucher chaque puce)
     let chips='<div class="scanttl">'+(det&&det._engine==='azure'?'✨ Lu par IA (Azure) — corrigez si besoin':'✨ Détecté et appliqué — corrigez les champs si besoin')+'</div>';let any=false;
@@ -920,7 +949,7 @@ function openBackup(){
   document.getElementById('bExp').onclick=exportBackup;
   document.getElementById('bImp').onclick=()=>document.getElementById('fileImport').click();}
 async function exportBackup(){const imgs={};
-  for(const e of state.expenses)if(e.hasImage){const d=await DB.get('img',e.id);if(d)imgs[e.id]=d;}
+  for(const e of state.expenses)if(e.hasImage){const a=await getImgs(e.id,e);if(a.length)imgs[e.id]=a;}
   dl(new Blob([JSON.stringify({v:2,state,images:imgs})],{type:'application/json'}),'sauvegarde-notes-de-frais-'+new Date().toISOString().slice(0,10)+'.json');
   toast('Sauvegarde exportée ✓');}
 document.getElementById('fileImport').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
@@ -997,13 +1026,14 @@ async function buildPdfBlob(){
     doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text('TOTAL À REMBOURSER',M,yy);doc.text(eur(d.total)+' €',W-M,yy,{align:'right'});
     if(d.missing>0){yy+=10;doc.setTextColor(200,120,30);doc.setFontSize(10);doc.text('Note : '+d.missing+' frais sans justificatif joint.',M,yy);}
     doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(120);doc.text('Généré le '+new Date().toLocaleDateString('fr-FR')+' · '+exp.length+' frais',M,H-12);
-    const withImg=[];for(const e of exp)if(e.hasImage&&e.imageType!=='pdf'){const data=await DB.get('img',e.id);if(data)withImg.push({e,data});}
+    const withImg=[],pdfList=[];for(const e of exp){if(!e.hasImage)continue;const a=await getImgs(e.id,e);
+      for(const im of a){if(im.imageType==='pdf')pdfList.push(e);else withImg.push({e,data:im.imageData});}}
     for(const it of withImg){const e=it.e;doc.addPage();
       doc.setFillColor(232,242,250);doc.rect(0,0,W,26,'F');doc.setTextColor(27,58,107);doc.setFont('helvetica','bold');doc.setFontSize(12);
       doc.text(fmtDateFR(e.date)+'  ·  '+e.categorie+'  ·  '+(e.categorie==='Kms'?num(e.montant)+' km':eur(e.montant)+' €'),M,12);
       doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(80);doc.text(((e.mission||'')+(e.intitule?'  —  '+e.intitule:'')).slice(0,90),M,20);
       try{const p=await imgSize(it.data);const maxW=W-2*M,maxH=H-46;let w=p.w,h=p.h,ratio=Math.min(maxW/w,maxH/h);w*=ratio;h*=ratio;doc.addImage(it.data,'JPEG',(W-w)/2,34,w,h);}catch(_){}}
-    const pdfs=exp.filter(e=>e.imageType==='pdf');
+    const pdfs=pdfList.filter((e,i,arr)=>arr.indexOf(e)===i);
     if(pdfs.length){doc.addPage();doc.setTextColor(27,58,107);doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text('Justificatifs PDF à joindre séparément',M,20);
       doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(60);let y=32;pdfs.forEach(e=>{doc.text('• '+fmtDateFR(e.date)+' · '+e.categorie+' · '+eur(e.montant)+' € · '+(e.mission||''),M,y);y+=7;});}
     return {blob:doc.output('blob'),name:'justificatifs-'+monthLabel(selMonth).replace(/\s/g,'-')+'.pdf'};
@@ -1081,7 +1111,7 @@ function openProviders(){
     document.getElementById('pvo_'+p.key).onclick=()=>window.open(p.url,'_blank','noopener');
     document.getElementById('pva_'+p.key).onclick=()=>openAddExpenseFor(p);});
 }
-function openAddExpenseFor(p){_draft=null;
+function openAddExpenseFor(p){_draftImgs=[];_ocrP=null;
   openSheet('Frais — '+p.label,expenseForm({categorie:p.cat,mission:p.label},false),saveExpenseDraft);
   wireExpenseForm(null);}
 
@@ -1188,13 +1218,18 @@ async function cloudPull(){
 async function cloudUploadJustif(e){
   try{
     if(!e._cloudRowId||!e.hasImage)return;
-    const dataUrl=await DB.get('img',e.id);if(!dataUrl)return;
+    const a=await getImgs(e.id,e);if(!a.length)return;
     const c=sbClient();
-    const blob=await(await fetch(dataUrl)).blob();
-    const ext=(e.imageType==='pdf')?'pdf':'jpg';
-    const path=ME.memberId+'/'+e._cloudRowId+'.'+ext;
-    const{error}=await c.storage.from('justificatifs').upload(path,blob,{upsert:true,contentType:blob.type||'image/jpeg'});
-    if(!error)await c.from('expenses').update({justificatif_path:path}).eq('id',e._cloudRowId);
+    // Le 1er justificatif garde le chemin historique memberId/rowId.ext (colonne justificatif_path inchangée) ;
+    // les suivants sont uploadés en memberId/rowId-1.ext, -2.ext … (archivage manager/compta).
+    for(let i=0;i<a.length;i++){
+      const im=a[i];
+      const blob=await(await fetch(im.imageData)).blob();
+      const ext=(im.imageType==='pdf')?'pdf':'jpg';
+      const path=ME.memberId+'/'+e._cloudRowId+(i===0?'':'-'+i)+'.'+ext;
+      const{error}=await c.storage.from('justificatifs').upload(path,blob,{upsert:true,contentType:blob.type||'image/jpeg'});
+      if(!error&&i===0)await c.from('expenses').update({justificatif_path:path}).eq('id',e._cloudRowId);
+    }
   }catch(err){console.warn('[cloud] justif',err.message||err);}
 }
 async function cloudUpsert(e){
