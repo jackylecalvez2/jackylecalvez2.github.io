@@ -4905,6 +4905,8 @@ window.addEventListener('unhandledrejection', function(e) {
 
 const USER = { prenom: 'Jacky', nom: '', titre: 'Direction Commerciale' };
 
+const APP_VERSION = '4.13.1';
+
 const ANTHROPIC_MODEL = 'claude-sonnet-4-5';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const LMSTUDIO_DEFAULT_URL = 'http://localhost:1234';
@@ -13104,6 +13106,43 @@ async function verifyCode() {
   if (!window._beetobBooted) _doBoot();   // onAuthStateChange déclenche aussi _doBoot, ceci est un filet
 }
 
+// === Nouveautés — modal "What's new" à la 1re connexion sur une nouvelle version ===
+function showWhatsNew() {
+  const SEEN_KEY = 'beetob:seen_version';
+  try { if (localStorage.getItem(SEEN_KEY) === APP_VERSION) return; } catch (e) {}
+  const news = [
+    { icon: '🔗', title: 'Connecteur INSEE', desc: 'Enrichissement automatique des fiches via SIREN : raison sociale, NAF, effectif, adresse officielle.' },
+    { icon: '🏛️', title: 'Connecteur INPI / RNE', desc: 'Dirigeants, capital, actes, comptes annuels — récupérés en un clic depuis le Registre National des Entreprises.' },
+    { icon: '⚡', title: 'Signaux faibles', desc: 'Détection automatique : création récente, déménagement, procédure collective, croissance CA — alertes sur chaque fiche.' },
+    { icon: '👤', title: 'Fiche client redessinée', desc: 'Sections segmentées, remises visibles, distinction visuelle prospect / client actif.' },
+    { icon: '💰', title: 'Remises sur la fiche', desc: 'Affichage des remises accordées directement sur la fiche client pour un suivi immédiat.' },
+  ];
+  const items = news.map(n => `
+    <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f0f0f0;">
+      <span style="font-size:1.5rem;flex:none;">${n.icon}</span>
+      <div>
+        <div style="font-weight:700;font-size:.93rem;color:#1B3A6B;margin-bottom:2px;">${n.title}</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.45;">${n.desc}</div>
+      </div>
+    </div>`).join('');
+  const modal = document.createElement('div');
+  modal.id = 'whatsNewModal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.52);display:flex;align-items:center;justify-content:center;padding:1rem;';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:18px;max-width:440px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#1B3A6B,#0078C8);padding:20px 22px 16px;color:#fff;">
+        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;opacity:.75;margin-bottom:4px;">Mise à jour v${APP_VERSION}</div>
+        <div style="font-size:1.25rem;font-weight:800;letter-spacing:-.01em;">🚀 Nouveautés BeetoB</div>
+        <div style="font-size:.82rem;opacity:.8;margin-top:4px;">FPEE · Réseau</div>
+      </div>
+      <div style="padding:4px 22px 0;">${items}</div>
+      <div style="padding:16px 22px 20px;">
+        <button onclick="document.getElementById('whatsNewModal').remove();try{localStorage.setItem('beetob:seen_version','${APP_VERSION}');}catch(e){}" style="width:100%;background:#1B3A6B;color:#fff;border:none;border-radius:10px;padding:12px;font-size:.95rem;font-weight:700;cursor:pointer;letter-spacing:-.01em;">C'est parti ✓</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
 // === Démarrage : on exige une session avant d'ouvrir l'app ===
 window._beetobBooted = false;
 async function _doBoot() {
@@ -13115,6 +13154,7 @@ async function _doBoot() {
   await init();
   injectAccountBadge();     // pastille "connecté · rôle" + déconnexion
   applyRoleUI();            // affiche l'onglet Équipe pour l'encadrement (Phase 2.2)
+  showWhatsNew();           // modal "nouveautés" à la 1re connexion sur cette version
 }
 async function bootBeetoB() {
   if (!BACKEND.useProxy) { _doBoot(); return; }     // mode test local sans backend
