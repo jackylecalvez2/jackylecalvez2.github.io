@@ -254,6 +254,10 @@ body {
   0%, 100% { box-shadow: 0 0 0 0 rgba(216,139,28,0.5); }
   50% { box-shadow: 0 0 0 8px rgba(216,139,28,0); }
 }
+@keyframes bodaccPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220,53,69,0.6); }
+  50% { box-shadow: 0 0 0 6px rgba(220,53,69,0); }
+}
 @keyframes spin-slow {
   to { transform: rotate(360deg); }
 }
@@ -3882,7 +3886,7 @@ window.addEventListener('unhandledrejection', function(e) {
       </div>
       <div class="sidebar-brand-text">
         <strong>BeetoB</strong>
-        <small>FPEE · Réseau · v4.12.0</small>
+        <small>FPEE · Réseau · v4.13.1</small>
       </div>
     </div>
 
@@ -4478,7 +4482,7 @@ window.addEventListener('unhandledrejection', function(e) {
 
   <div class="toolbar" style="margin-top:14px;">
     <button class="btn btn-primary" onclick="sf_render()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:6px"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg>Recalculer</button>
-    <button class="btn" onclick="sf_scan()" id="sf_scanBtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:6px"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M6 6a8.5 8.5 0 0 0 0 12"/><path d="M18 6a8.5 8.5 0 0 1 0 12"/></svg>Scanner les prospects (RGE + BODACC)</button>
+    <button class="btn" onclick="sf_scan()" id="sf_scanBtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:6px"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M6 6a8.5 8.5 0 0 0 0 12"/><path d="M18 6a8.5 8.5 0 0 1 0 12"/></svg>Scanner les prospects (RGE + BODACC + INSEE)</button>
     <span id="sf_status" style="font-size:12px;color:var(--muted);align-self:center;"></span>
   </div>
   <div id="sf_results" style="margin-top:14px;"></div>
@@ -4560,7 +4564,7 @@ window.addEventListener('unhandledrejection', function(e) {
   <div class="conn-section">
     <div class="conn-section-head">
       <span class="conn-section-title">Signaux faibles</span>
-      <span class="conn-section-meta">À venir · Roadmap v8</span>
+      <span class="conn-section-meta">INSEE connecté · France Travail à venir</span>
     </div>
     <div id="connSignalsList"></div>
   </div>
@@ -4904,6 +4908,8 @@ window.addEventListener('unhandledrejection', function(e) {
    ========================================= */
 
 const USER = { prenom: 'Jacky', nom: '', titre: 'Direction Commerciale' };
+
+const APP_VERSION = '4.13.1';
 
 const ANTHROPIC_MODEL = 'claude-sonnet-4-5';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
@@ -5537,7 +5543,7 @@ let STATE = {
 // fichier, contrairement à window.storage qui n'existe qu'en aperçu d'artefact.
 // - Les clés de configuration IA sont GLOBALES (configurées une seule fois).
 // - Les données métier sont isolées PAR PROFIL.
-const BEETOB_GLOBAL_KEYS = new Set(['api_key', 'claude_model', 'ai_engine', 'gemini_key', 'gemini_model', 'lm_studio_url', 'lm_studio_model', 'ai_config', 'copilot_token', 'copilot_endpoint', 'copilot_client_id', 'copilot_tenant_id', 'copilot_msal_url']);
+const BEETOB_GLOBAL_KEYS = new Set(['api_key', 'claude_model', 'ai_engine', 'gemini_key', 'gemini_model', 'lm_studio_url', 'lm_studio_model', 'ai_config', 'copilot_token', 'copilot_endpoint', 'copilot_client_id', 'copilot_tenant_id', 'copilot_msal_url', 'ft_client_id', 'ft_client_secret', 'inpi_user', 'inpi_pass']);
 // ============================================================
 // STOCKAGE IndexedDB (v4.10.0) — magasin primaire des données (capacité large,
 // fini le quota ~5 Mo de localStorage et l'échec d'écriture silencieux).
@@ -6933,6 +6939,12 @@ async function init() {
   STATE.copilotClientId = await loadKey('copilot_client_id', '');
   STATE.copilotTenantId = await loadKey('copilot_tenant_id', '');
   STATE.copilotMsalUrl = await loadKey('copilot_msal_url', 'https://alcdn.msauth.net/browser/3.28.1/js/msal-browser.min.js');
+  STATE.ftClientId = await loadKey('ft_client_id', '');
+  STATE.ftClientSecret = await loadKey('ft_client_secret', '');
+  STATE.ftToken = null; STATE.ftTokenExp = 0;
+  STATE.inpiUser = await loadKey('inpi_user', '');
+  STATE.inpiPass = await loadKey('inpi_pass', '');
+  STATE.inpiToken = null; STATE.inpiTokenExp = 0;
   // Si LM Studio configuré, on tente une reconnexion silencieuse au démarrage
   if (STATE.aiEngine === 'lmstudio' && STATE.lmStudioModel) {
     testLMStudio().catch(() => {}); // silent
@@ -7820,12 +7832,13 @@ function renderProspectsTable() {
     const score = p.score || 0;
     const scoreCls = score >= 70 ? 'score-high' : score >= 50 ? 'score-mid' : 'score-low';
     const iaMark = p.iaScored ? '<span class="score-ia" title="Scoré par IA">✨</span>' : '';
-    return `<tr onclick="openProspect('${p.id}')">
+    const _cli = isClient(p);
+    return `<tr onclick="openProspect('${p.id}')" style="${_cli ? 'background:linear-gradient(90deg,#f0faf4,#fff);border-left:3px solid #2d8a4f;' : ''}">
       <td>
         <div style="display:flex;align-items:center;gap:10px;">
-          <div class="prospect-avatar ${score >= 65 ? 'gold' : ''}">${getInitials(p.enseigne)}</div>
+          <div class="prospect-avatar ${score >= 65 ? 'gold' : ''}" style="${_cli ? 'background:#1a7a40!important;' : ''}">${getInitials(p.enseigne)}</div>
           <div>
-            <div class="cell-name">${escapeHtml(p.enseigne)}</div>
+            <div class="cell-name">${escapeHtml(p.enseigne)}${_cli ? ' <span style="font-size:10px;font-weight:700;background:#1a7a40;color:#fff;padding:1px 6px;border-radius:100px;vertical-align:middle;">CLIENT</span>' : ''}</div>
             <div class="cell-meta">${escapeHtml(p.fournisseur||'')}</div>
           </div>
         </div>
@@ -7913,13 +7926,14 @@ function renderProspectsCards() {
     const stadeOptions = ['froid', 'contacte', 'repondu', 'rdv', 'devis', 'signe', 'perdu', 'pause']
       .map(s => `<option value="${s}" ${p.stade === s ? 'selected' : ''}>${stadeLabel(s)}</option>`).join('');
 
-    return `<div class="pcard stade-${p.stade || 'froid'} ${hot ? 'hot' : ''}">
+    const _cli = isClient(p);
+    return `<div class="pcard stade-${p.stade || 'froid'} ${hot ? 'hot' : ''}" style="${_cli ? 'border:2px solid #1a7a40!important;box-shadow:0 2px 12px rgba(26,122,64,.18)!important;' : ''}">
       <div class="pcard-col">
         <div class="pcard-id">
           ${selectCheckbox(p.id)}
-          <div class="pcard-avatar ${score >= 65 ? 'gold' : ''}">${getInitials(p.enseigne)}</div>
+          <div class="pcard-avatar ${score >= 65 ? 'gold' : ''}" style="${_cli ? 'background:#1a7a40!important;' : ''}">${getInitials(p.enseigne)}</div>
           <div style="min-width:0;">
-            <div class="pcard-name">${escapeHtml(p.enseigne || 'Sans nom')}</div>
+            <div class="pcard-name">${escapeHtml(p.enseigne || 'Sans nom')}${_cli ? ' <span style="font-size:10px;font-weight:800;background:#1a7a40;color:#fff;padding:2px 7px;border-radius:100px;vertical-align:middle;">✅ CLIENT</span>' : ''}${(() => { const ba = getBodaccAlert(p); return ba ? ` <span title="${escapeHtml(ba.label + (ba.date ? ' — ' + new Date(ba.date).toLocaleDateString('fr-FR') : ''))}" style="font-size:10px;font-weight:800;background:#DC3545;color:#fff;padding:2px 8px;border-radius:100px;vertical-align:middle;animation:bodaccPulse 2s infinite;">🚨 ${ba.severity === 'critical' ? 'PROCÉDURE' : 'ALERTE'}</span>` : ''; })()}</div>
             ${p.fournisseur ? `<div class="pcard-sub">${escapeHtml(p.fournisseur)}</div>` : ''}
             ${typoLabel ? `<span class="pcard-typo">${escapeHtml(typoLabel)}</span>` : ''}
           </div>
@@ -7952,7 +7966,51 @@ function renderProspectsCards() {
 }
 
 function stadeLabel(s) {
-  return { froid:'Froid', contacte:'Contacté', repondu:'A répondu', rdv:'RDV pris', devis:'Devis envoyé', signe:'Signé', perdu:'Perdu', pause:'En pause' }[s] || s;
+  return { froid:'Froid', contacte:'Contacté', repondu:'A répondu', rdv:'RDV pris', devis:'Devis envoyé', signe:'Signé ✅', perdu:'Perdu', pause:'En pause' }[s] || s;
+}
+function isClient(p) { return p && p.stade === 'signe'; }
+
+// Retourne la procédure collective la plus grave si présente dans les données BODACC stockées
+function getBodaccAlert(p) {
+  if (!p || !p.bodaccData || !Array.isArray(p.bodaccData.annonces)) return null;
+  const crit = p.bodaccData.annonces.find(a => a.severity === 'critical');
+  if (crit) return crit;
+  const high = p.bodaccData.annonces.find(a => a.severity === 'high');
+  return high || null;
+}
+
+// Colonnes de remise tirées de la grille ProDevis/ELCIA
+const REMISES_COLS = [
+  { key: 'pvc',      label: 'PVC' },
+  { key: 'bb',       label: 'BB' },
+  { key: 'bb_essntl',label: 'BB ESSNTL' },
+  { key: 'alu',      label: 'ALU' },
+  { key: 'portail',  label: 'Portail' },
+  { key: 'vb',       label: 'VB' },
+  { key: 'pe_fpee',  label: 'PE FPEE' },
+  { key: 'pvc_prld', label: 'PVC PRLD' },
+  { key: 'mix',      label: 'MIX' },
+];
+
+function renderRemisesSection(p) {
+  const rem = p.remises || {};
+  const hasAny = REMISES_COLS.some(c => rem[c.key] != null && rem[c.key] !== '');
+  return `
+    <div id="remisesSection" style="border:2px solid var(--success,#2d8a4f);border-radius:12px;padding:14px 16px;margin-bottom:18px;background:linear-gradient(135deg,#f0faf4,#fff);">
+      <div style="font-family:var(--sans);font-size:12px;font-weight:700;color:var(--success,#2d8a4f);margin-bottom:11px;text-transform:uppercase;letter-spacing:.6px;">💰 Grille de remises (ProDevis / ELCIA)</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+        ${REMISES_COLS.map(c => `
+          <div style="min-width:68px;flex:1;">
+            <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:3px;">${c.label}</label>
+            <div style="display:flex;align-items:center;gap:2px;">
+              <input id="rem_${c.key}" type="number" min="0" max="100" step="0.5" value="${escapeAttr(String(rem[c.key] ?? ''))}" placeholder="—"
+                style="width:100%;padding:5px 4px;border:1px solid ${rem[c.key]?'var(--success,#2d8a4f)':'var(--rule)'};border-radius:6px;font-size:13px;font-weight:700;text-align:center;color:var(--success,#2d8a4f);">
+              <span style="font-size:11px;color:var(--muted);">%</span>
+            </div>
+          </div>`).join('')}
+      </div>
+      ${!hasAny ? '<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:8px;">Renseigne la grille de remises accordée à ce client (issue de ProDevis/ELCIA).</div>' : ''}
+    </div>`;
 }
 
 // ===== CONTACTABILITÉ (v4.12) =====
@@ -8401,14 +8459,15 @@ function openProspect(id) {
   const p = STATE.prospects.find(x => x.id === id);
   if (!p) return;
   STATE.currentProspect = p;
-  document.getElementById('modalTitle').textContent = 'Fiche prospect';
+  document.getElementById('modalTitle').textContent = isClient(p) ? '✅ Fiche client' : 'Fiche prospect';
   document.getElementById('btnDeleteProspect').style.display = 'inline-block';
   renderProspectModal(p);
   openModal('modalProspect');
 }
 
 function prospectTab(name) {
-  ['fiche','ia','suivi'].forEach(t => {
+  const allTabs = ['vue','editer','remises','ia','suivi','fiche'];
+  allTabs.forEach(t => {
     const panel = document.getElementById('ptab-' + t);
     const btn = document.getElementById('ptabbtn-' + t);
     if (panel) panel.style.display = (t === name) ? 'block' : 'none';
@@ -8425,196 +8484,219 @@ function renderProspectModal(p) {
   const body = document.getElementById('modalProspectBody');
   const isExisting = !!STATE.currentProspect;
   const stade = p.stade || 'froid';
-  const overdue = p.nextAction && p.nextAction.date && parseDate(p.nextAction.date) < today();
-  const naText = (p.nextAction && p.nextAction.text) ? escapeHtml(p.nextAction.text) : null;
-  const score = (p.score !== undefined && p.score !== '' && p.score !== null) ? parseInt(p.score, 10) : null;
+  const score = (p.score !== undefined && p.score !== null && p.score !== '') ? parseInt(p.score, 10) : null;
   const contactName = ((p.contact_prenom || '') + ' ' + (p.contact_nom || '')).trim();
+  const _client = isClient(p);
   const _cs = computeContactScore(p);
-  const contactabilityBlock = isExisting
-    ? `<div id="contactScoreBox" style="margin-bottom:14px;">${contactScoreBadgeHtml(p, false)}</div>`
-    : '';
+  const overdue = p.nextAction && p.nextAction.date && parseDate(p.nextAction.date) < today();
 
-  // ---- En-tête "waouh" : statut + action en un coup d'œil ----
+  // ── HERO ──────────────────────────────────────────────────────────────────
+  const accentBg = _client ? 'linear-gradient(135deg,#1a7a40,#0d5c2e)' : 'linear-gradient(135deg,#1B3A6B,#003a66)';
+  const accentShadow = _client ? 'rgba(27,122,64,.28)' : 'rgba(0,58,102,.22)';
+  const heroCtas = (() => {
+    const btns = [];
+    if (p.mobile) btns.push(`<a href="tel:${escapeAttr(p.mobile.replace(/\s/g,''))}" style="display:inline-flex;align-items:center;gap:5px;background:#fff;color:#1B3A6B;font-weight:700;font-size:12.5px;padding:7px 13px;border-radius:8px;text-decoration:none;white-space:nowrap;">📱 ${escapeHtml(p.mobile)}</a>`);
+    else if (p.telephone) btns.push(`<a href="tel:${escapeAttr(p.telephone.replace(/\s/g,''))}" style="display:inline-flex;align-items:center;gap:5px;background:#fff;color:#1B3A6B;font-weight:700;font-size:12.5px;padding:7px 13px;border-radius:8px;text-decoration:none;white-space:nowrap;">☎️ ${escapeHtml(p.telephone)}</a>`);
+    if (p.email && !/^contact-a-trouver-/.test(p.email)) btns.push(`<a href="mailto:${escapeAttr(p.email)}" style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.18);color:#fff;font-weight:600;font-size:12.5px;padding:7px 13px;border-radius:8px;text-decoration:none;white-space:nowrap;">✉️ Email</a>`);
+    if (isExisting) {
+      btns.push(`<button onclick="openProspectMaps('${p.id}')" style="background:rgba(255,255,255,.18);color:#fff;border:0;font-weight:600;font-size:12.5px;padding:7px 13px;border-radius:8px;cursor:pointer;white-space:nowrap;">📍 Maps</button>`);
+      if (p.linkedin_url) btns.push(`<a href="${escapeAttr(p.linkedin_url)}" target="_blank" rel="noopener" style="background:rgba(10,102,194,.7);color:#fff;font-weight:700;font-size:12.5px;padding:7px 13px;border-radius:8px;text-decoration:none;white-space:nowrap;">in LinkedIn</a>`);
+    }
+    return btns;
+  })();
+
+  const stadeColors = { froid:'#607D8B', contacte:'#1976D2', repondu:'#0288D1', rdv:'#7B1FA2', devis:'#F57C00', signe:'#2E7D32', perdu:'#C62828', pause:'#78909C' };
   const hero = `
-    <div style="background:linear-gradient(135deg,var(--fpee-blue),#003a66);color:#fff;border-radius:14px;padding:16px 18px;margin-bottom:16px;box-shadow:0 6px 20px rgba(0,60,110,.25);">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-        <div style="min-width:0;">
-          <div style="font-family:var(--sans);font-size:21px;font-weight:800;line-height:1.15;">${escapeHtml(p.enseigne || 'Nouveau prospect')}</div>
-          <div style="font-size:12.5px;opacity:.92;margin-top:3px;">📍 ${escapeHtml(p.ville || '—')}${p.dept ? ' (' + escapeHtml(p.dept) + ')' : ''}${contactName ? ' · 👤 ' + escapeHtml(contactName) : ''}</div>
-        </div>
-        <div style="display:flex;gap:12px;align-items:center;flex-shrink:0;">
-          ${score !== null ? `<div style="text-align:center;line-height:1;"><div style="font-size:24px;font-weight:800;">${score}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;opacity:.85;margin-top:2px;">score</div></div>` : ''}
-          <span style="background:rgba(255,255,255,.22);color:#fff;font-size:12px;font-weight:700;padding:5px 11px;border-radius:100px;white-space:nowrap;">${stadeLabel(stade)}</span>
-          <span style="background:rgba(255,255,255,.15);color:#fff;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:100px;white-space:nowrap;" title="Joignabilité ${_cs.score}/100">${_cs.level==='high'?'📶':_cs.level==='medium'?'📡':'📵'} ${_cs.score}/100</span>
+    <div style="background:${accentBg};color:#fff;border-radius:16px;padding:18px 20px 14px;margin-bottom:0;box-shadow:0 8px 28px ${accentShadow};">
+      <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;">
+        <div style="width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;flex-shrink:0;letter-spacing:-1px;">${getInitials(p.enseigne)}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+            <span style="font-size:20px;font-weight:800;line-height:1.2;">${escapeHtml(p.enseigne || 'Nouveau')}</span>
+            ${_client ? '<span style="font-size:10.5px;font-weight:800;background:rgba(255,255,255,.25);padding:3px 9px;border-radius:100px;letter-spacing:.4px;">✅ CLIENT</span>' : ''}
+            <span style="font-size:11px;font-weight:700;background:${stadeColors[stade]||'#607D8B'};padding:3px 10px;border-radius:100px;">${stadeLabel(stade)}</span>
+          </div>
+          <div style="font-size:12px;opacity:.88;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            ${p.ville ? `<span>📍 ${escapeHtml(p.ville)}${p.dept ? ' ('+escapeHtml(p.dept)+')' : ''}</span>` : ''}
+            ${contactName ? `<span>👤 ${escapeHtml(contactName)}${p.contact_fonction ? ' · '+escapeHtml(p.contact_fonction) : ''}</span>` : ''}
+            ${score !== null ? `<span style="font-weight:800;font-size:13px;">⭐ ${score}/100</span>` : ''}
+            <span title="Joignabilité">${_cs.level==='high'?'📶':_cs.level==='medium'?'📡':'📵'} ${_cs.score}</span>
+          </div>
         </div>
       </div>
-      <div style="margin-top:13px;background:${overdue ? 'rgba(192,57,43,.95)' : 'rgba(255,255,255,.16)'};border-radius:10px;padding:10px 13px;font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <span style="font-size:15px;">🎯</span><strong>Action à mener :</strong>
-        <span>${naText ? naText + (p.nextAction.date ? ' · échéance ' + fmtDate(p.nextAction.date) : '') + (overdue ? ' ⚠️ en retard' : '') : 'aucune définie — planifie-en une dans l\'onglet Fiche'}</span>
-      </div>
+      ${heroCtas.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">${heroCtas.join('')}</div>` : ''}
+      ${p.nextAction && p.nextAction.text ? `
+        <div style="margin-top:12px;background:${overdue?'rgba(192,57,43,.9)':'rgba(0,0,0,.22)'};border-radius:10px;padding:9px 13px;font-size:12.5px;display:flex;align-items:center;gap:8px;">
+          <span>🎯</span><span>${escapeHtml(p.nextAction.text)}${p.nextAction.date ? ' · <strong>'+fmtDate(p.nextAction.date)+'</strong>' : ''}${overdue?' <span style="background:rgba(255,255,255,.25);padding:1px 7px;border-radius:100px;font-size:11px;">⚠️ en retard</span>':''}</span>
+        </div>` : ''}
     </div>`;
 
-  // ---- Barre d'onglets (uniquement sur une fiche existante) ----
-  const tabbar = isExisting ? `
-    <div style="display:flex;gap:2px;border-bottom:2px solid var(--rule);margin-bottom:18px;overflow-x:auto;">
-      ${[['fiche', '📇 Fiche'], ['ia', '✨ Enrichissement IA'], ['suivi', '📨 Suivi & actions']].map(([k, l], i) =>
-        `<button id="ptabbtn-${k}" type="button" onclick="prospectTab('${k}')" style="background:none;border:0;border-bottom:2px solid ${i === 0 ? 'var(--fpee-blue)' : 'transparent'};margin-bottom:-2px;padding:9px 14px;font-size:13.5px;font-family:var(--sans);font-weight:${i === 0 ? '700' : '500'};color:${i === 0 ? 'var(--fpee-blue)' : 'var(--muted)'};cursor:pointer;white-space:nowrap;">${l}</button>`
-      ).join('')}
-    </div>` : '';
+  // ── TABS ──────────────────────────────────────────────────────────────────
+  const TABS = [['vue','📋 Vue'], ['editer','✏️ Modifier'], ...(_client ? [['remises','💰 Remises']] : []), ['ia','✨ IA'], ['suivi','📨 Suivi']];
+  const firstTab = isExisting ? 'vue' : 'editer';
+  const tabbar = `
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--rule);margin:14px 0 0;overflow-x:auto;-webkit-overflow-scrolling:touch;">
+      ${TABS.map(([k, l]) => `<button id="ptabbtn-${k}" type="button" onclick="prospectTab('${k}')"
+        style="background:none;border:0;border-bottom:2px solid ${k===firstTab?'var(--fpee-blue)':'transparent'};margin-bottom:-2px;padding:10px 15px;font-size:13px;font-family:var(--sans);font-weight:${k===firstTab?'700':'500'};color:${k===firstTab?'var(--fpee-blue)':'var(--muted)'};cursor:pointer;white-space:nowrap;flex-shrink:0;">${l}</button>`).join('')}
+    </div>`;
 
-  // ---- Sélecteur "commercial en charge" (encadrement, fiche existante) ----
-  const _isMgr = (typeof meManagesTeam === 'function' && meManagesTeam());
-  const _coms = (_isMgr && Array.isArray(TEAM.members)) ? TEAM.members.filter(m => m.role === 'commercial') : [];
-  const commercialRow = (_isMgr && isExisting) ? `
-      <div class="form-row">
-        <div class="field"><label>👤 Commercial en charge</label>
-          <select id="f_commercial" onchange="prospectAssign('${p.id}', this.value)">
-            <option value="">— Non affecté —</option>
-            ${_coms.map(m => `<option value="${m.id}" ${p._commercialId === m.id ? 'selected' : ''}>${escapeHtml(m.full_name || m.email)}</option>`).join('')}
-          </select>
+  // ── TAB VUE ───────────────────────────────────────────────────────────────
+  const devisEnCours = isExisting ? prospectDevisEnCours(p) : [];
+  const remiseMax = isExisting ? prospectRemiseMax(p) : 0;
+  const tabVue = !isExisting ? '' : (() => {
+    const nE = getNextStep(p, 'email'), nL = getNextStep(p, 'linkedin');
+    const seqDue = [];
+    if (nE && nE.dueDate <= today()) seqDue.push(`📧 Séquence email : ${escapeHtml((STATE.sequenceEmail[nE.stepIdx]||{}).label||'')}`);
+    if (nL && nL.dueDate <= today()) seqDue.push(`in LinkedIn : action à traiter`);
+    const _row = (ico, label, val, href) => val ? `
+      <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--rule);">
+        <span style="font-size:15px;width:20px;text-align:center;flex-shrink:0;">${ico}</span>
+        <div style="min-width:0;flex:1;">
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">${label}</div>
+          ${href ? `<a href="${escapeAttr(href)}" ${href.startsWith('http')?'target="_blank" rel="noopener"':''} style="font-size:13.5px;color:var(--fpee-blue);font-weight:600;text-decoration:none;">${val}</a>`
+                  : `<div style="font-size:13.5px;font-weight:600;">${val}</div>`}
         </div>
-        <div class="field"></div>
       </div>` : '';
 
-  // ---- Bloc "Action à mener & Pipeline" : mis en avant ----
-  const actionCard = `
-    <div style="border:2px solid var(--fpee-blue);border-radius:12px;padding:14px 16px;margin-bottom:18px;background:var(--paper-warm);">
-      <div style="font-family:var(--sans);font-size:12px;font-weight:700;color:var(--fpee-blue);margin-bottom:11px;text-transform:uppercase;letter-spacing:.6px;">🎯 Action à mener &amp; Pipeline</div>
-      <div class="form-row">
-        <div class="field"><label>🎯 Prochaine action</label><input id="f_nextaction" value="${escapeAttr((p.nextAction && p.nextAction.text) || '')}" placeholder="Ex : Relancer par téléphone"></div>
-        <div class="field"><label>📅 Échéance</label><input id="f_nextdate" type="date" value="${escapeAttr((p.nextAction && p.nextAction.date) || '')}"></div>
-      </div>
-      <div class="form-row">
-        <div class="field"><label>Stade</label>
-          <select id="f_stade">${['froid','contacte','repondu','rdv','devis','signe','perdu','pause'].map(s => `<option value="${s}" ${stade === s ? 'selected' : ''}>${stadeLabel(s)}</option>`).join('')}</select>
+    const colLeft = `
+      <div style="display:flex;flex-direction:column;gap:0;">
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">👤 Contact</div>
+        ${_row('👤', 'Nom', contactName || null, null)}
+        ${p.contact_fonction ? _row('🏷️','Fonction',escapeHtml(p.contact_fonction),null) : ''}
+        ${p.mobile ? _row('📱','Mobile',escapeHtml(p.mobile),'tel:'+p.mobile.replace(/\s/g,'')) : ''}
+        ${p.telephone ? _row('☎️','Fixe',escapeHtml(p.telephone),'tel:'+p.telephone.replace(/\s/g,'')) : ''}
+        ${p.email && !/^contact-a-trouver-/.test(p.email) ? _row('✉️','Email',escapeHtml(p.email),'mailto:'+p.email) : ''}
+        ${p.linkedin_url ? _row('in','LinkedIn','Voir le profil',p.linkedin_url) : ''}
+        <div style="margin-top:16px;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">🏢 Société</div>
+        ${_row('📍','Adresse',[p.ville,p.cp,p.dept?'('+p.dept+')':''].filter(Boolean).join(' ')||null, prospectMapsUrl(p))}
+        ${p.fournisseur ? _row('⚔️','Fournisseur actuel',escapeHtml(p.fournisseur),null) : ''}
+        ${p.cible ? _row('🎯','Cible',escapeHtml({concessionnaire:'Concessionnaire',independant:'Indépendant',negoce:'Négoce'}[p.cible]||p.cible),null) : ''}
+        ${p.siren ? _row('🔢','SIREN',escapeHtml(p.siren),null) : ''}
+        ${p.notes_init ? `<div style="margin-top:12px;background:var(--paper-warm);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--text-2);line-height:1.5;">${escapeHtml(p.notes_init)}</div>` : ''}
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-sm" onclick="downloadVCard('${p.id}')">📇 vCard</button>
+          <button class="btn btn-sm" onclick="agendaDownloadIcs('${p.id}','action')">📅 .ics</button>
+          <button class="btn btn-sm btn-primary" onclick="shareProspect('${p.id}')">📤 Partager</button>
         </div>
-        <div class="field"><label>Score</label><input id="f_score" type="number" min="0" max="100" value="${p.score || ''}"></div>
+      </div>`;
+
+    const colRight = `
+      <div style="display:flex;flex-direction:column;gap:0;">
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">🎯 Pipeline</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div style="background:var(--paper-warm);border-radius:10px;padding:10px 12px;">
+            <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:3px;">Stade</div>
+            <div style="font-size:13.5px;font-weight:700;">${stadeLabel(stade)}</div>
+          </div>
+          ${score !== null ? `<div style="background:var(--paper-warm);border-radius:10px;padding:10px 12px;"><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:3px;">Score</div><div style="font-size:20px;font-weight:800;color:${score>=70?'var(--success)':score>=50?'var(--warning)':'var(--muted)'};">${score}</div></div>` : '<div></div>'}
+          ${p.montant ? `<div style="background:var(--paper-warm);border-radius:10px;padding:10px 12px;"><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:3px;">Montant estimé</div><div style="font-size:15px;font-weight:800;color:var(--fpee-blue);">${formatCurrency(p.montant)}</div></div>` : '<div></div>'}
+          ${p.closeDate ? `<div style="background:var(--paper-warm);border-radius:10px;padding:10px 12px;"><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:3px;">Clôture prévue</div><div style="font-size:13.5px;font-weight:700;">${fmtDate(p.closeDate)}</div></div>` : '<div></div>'}
+        </div>
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">💶 Devis</div>
+        <div id="prepaRdvBox" style="margin-bottom:8px;">
+          ${devisEnCours.length ? devisEnCours.map(d => {
+              const s = devisStatut(d.statut);
+              return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--rule);margin-bottom:6px;">
+                <div><span style="font-weight:700;">${formatCurrency(d.montant||0)}</span>${d.ref?' <span style="color:var(--muted);font-size:12px;">'+escapeHtml(d.ref)+'</span>':''}</div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  ${d.remise?`<span style="color:var(--accent);font-weight:700;font-size:12px;">-${d.remise}%</span>`:''}
+                  <span style="background:${s.c};color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;">${s.l}</span>
+                </div>
+              </div>`;
+            }).join('') : '<div style="font-size:12.5px;color:var(--muted);font-style:italic;padding:6px 0;">Aucun devis en cours.</div>'}
+        </div>
+        <button class="btn btn-sm" onclick="prospectTab('editer');setTimeout(()=>document.getElementById('devisSection')?.scrollIntoView({behavior:'smooth'}),80);" style="align-self:flex-start;">+ Ajouter un devis</button>
+        ${seqDue.length ? `<div style="margin-top:14px;background:#fff8e1;border-radius:8px;padding:10px 12px;"><div style="font-size:11px;font-weight:800;color:#F57C00;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">⏰ Séquences dues</div>${seqDue.map(s=>`<div style="font-size:12.5px;padding:3px 0;">${s}</div>`).join('')}</div>` : ''}
+        ${isExisting ? `<div style="margin-top:14px;">${contactScoreBadgeHtml(p, false)}</div>` : ''}
+      </div>`;
+
+    return `<div id="ptab-vue" style="display:block;padding-top:18px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        ${colLeft}
+        ${colRight}
+      </div>
+    </div>`;
+  })();
+
+  // ── TAB MODIFIER (formulaire complet) ─────────────────────────────────────
+  const _isMgr = (typeof meManagesTeam === 'function' && meManagesTeam());
+  const _coms = (_isMgr && Array.isArray(TEAM.members)) ? TEAM.members.filter(m => m.role === 'commercial') : [];
+  const _sec = (title, content) => `
+    <details open style="border:1px solid var(--rule);border-radius:10px;margin-bottom:10px;overflow:hidden;">
+      <summary style="font-size:12px;font-weight:700;color:var(--fpee-blue);text-transform:uppercase;letter-spacing:.6px;padding:11px 14px;cursor:pointer;background:var(--paper-warm);list-style:none;display:flex;align-items:center;gap:6px;">${title}</summary>
+      <div style="padding:14px 14px 6px;">${content}</div>
+    </details>`;
+
+  const tabEditer = `<div id="ptab-editer" style="display:${isExisting?'none':'block'};padding-top:14px;">
+    ${_sec('🎯 Pipeline & Action', `
+      <div class="form-row">
+        <div class="field"><label>Stade</label><select id="f_stade">${['froid','contacte','repondu','rdv','devis','signe','perdu','pause'].map(s=>`<option value="${s}"${stade===s?' selected':''}>${stadeLabel(s)}</option>`).join('')}</select></div>
+        <div class="field"><label>Score /100</label><input id="f_score" type="number" min="0" max="100" value="${p.score||''}"></div>
       </div>
       <div class="form-row">
-        <div class="field"><label>💶 Montant estimé (€)</label><input id="f_montant" type="number" min="0" step="100" value="${p.montant || ''}" placeholder="Ex : 25000"></div>
-        <div class="field"><label>📅 Clôture prévue</label><input id="f_closedate" type="date" value="${escapeAttr(p.closeDate || '')}"></div>
+        <div class="field"><label>Prochaine action</label><input id="f_nextaction" value="${escapeAttr((p.nextAction&&p.nextAction.text)||'')}" placeholder="Ex : Relancer par téléphone"></div>
+        <div class="field"><label>Échéance</label><input id="f_nextdate" type="date" value="${escapeAttr((p.nextAction&&p.nextAction.date)||'')}"></div>
       </div>
-      ${commercialRow}
-    </div>`;
-
-  // ---- Champs d'identité ----
-  const ficheFields = `
-    <div class="form-row">
-      <div class="field"><label>Enseigne *</label><input id="f_enseigne" value="${escapeAttr(p.enseigne || '')}"></div>
-      <div class="field"><label>Cible</label>
-        <select id="f_cible">
-          <option value="concessionnaire" ${p.cible === 'concessionnaire' ? 'selected' : ''}>Concessionnaire</option>
-          <option value="independant" ${p.cible === 'independant' ? 'selected' : ''}>Indépendant</option>
-          <option value="negoce" ${p.cible === 'negoce' ? 'selected' : ''}>Négoce</option>
-        </select>
+      <div class="form-row">
+        <div class="field"><label>Montant estimé (€)</label><input id="f_montant" type="number" min="0" step="100" value="${p.montant||''}" placeholder="Ex : 25000"></div>
+        <div class="field"><label>Clôture prévue</label><input id="f_closedate" type="date" value="${escapeAttr(p.closeDate||'')}"></div>
       </div>
-    </div>
-    <div class="form-row">
-      <div class="field"><label>Ville</label><input id="f_ville" value="${escapeAttr(p.ville || '')}"></div>
-      <div class="field"><label>Département</label><input id="f_dept" value="${escapeAttr(p.dept || '')}"></div>
-    </div>
-    <div class="form-row">
-      <div class="field"><label>SIREN (9 chiffres)</label><input id="f_siren" value="${escapeAttr(p.siren || '')}" placeholder="Ex: 790758338 — requis pour BODACC/RGE"></div>
-      <div class="field"><label>Code postal</label><input id="f_cp" value="${escapeAttr(p.cp || '')}"></div>
-    </div>
-    <div class="form-row">
-      <div class="field"><label>Prénom dirigeant</label><input id="f_prenom" value="${escapeAttr(p.contact_prenom || '')}"></div>
-      <div class="field"><label>Nom dirigeant</label><input id="f_nom" value="${escapeAttr(p.contact_nom || '')}"></div>
-    </div>
-    <div class="form-row">
-      <div class="field"><label>Fonction</label><input id="f_fonction" value="${escapeAttr(p.contact_fonction || '')}"></div>
-      <div class="field"><label>Email *</label><input id="f_email" type="email" value="${escapeAttr(p.email || '')}"></div>
-    </div>
-    <div class="form-row">
-      <div class="field"><label>☎️ Téléphone fixe</label><input id="f_tel" value="${escapeAttr(p.telephone || '')}"></div>
-      <div class="field"><label>📱 Mobile</label><input id="f_mobile" value="${escapeAttr(p.mobile || '')}" placeholder="06 / 07…"></div>
-    </div>
-    <div class="form-row">
-      <div class="field"><label>in LinkedIn (URL)</label><input id="f_linkedin" value="${escapeAttr(p.linkedin_url || '')}" placeholder="https://linkedin.com/in/…"></div>
-      <div class="field"><label>f Facebook (URL)</label><input id="f_facebook" value="${escapeAttr(p.facebook_url || '')}" placeholder="https://facebook.com/…"></div>
-    </div>
-    <div class="form-row">
-      <div class="field"><label>Fournisseur actuel</label><input id="f_fournisseur" value="${escapeAttr(p.fournisseur || '')}"></div>
-      <div class="field" style="display:flex;align-items:flex-end;">
-        <button class="btn btn-ia btn-sm" onclick="rescoreProspect()" ${aiAvailable() ? '' : 'disabled'} style="width:100%;">${aiAvailable() ? 'Re-scorer avec IA' : 'Configure le moteur IA'}</button>
+      ${_isMgr && isExisting ? `<div class="form-row"><div class="field"><label>Commercial en charge</label><select id="f_commercial" onchange="prospectAssign('${p.id}', this.value)"><option value="">— Non affecté —</option>${_coms.map(m=>`<option value="${m.id}"${p._commercialId===m.id?' selected':''}>${escapeHtml(m.full_name||m.email)}</option>`).join('')}</select></div><div class="field"></div></div>` : ''}
+    `)}
+    ${_sec('👤 Contact', `
+      <div class="form-row">
+        <div class="field"><label>Prénom</label><input id="f_prenom" value="${escapeAttr(p.contact_prenom||'')}"></div>
+        <div class="field"><label>Nom</label><input id="f_nom" value="${escapeAttr(p.contact_nom||'')}"></div>
       </div>
-    </div>
-    <div class="form-row full">
-      <div class="field"><label>Notes / Contexte</label><textarea id="f_notes">${escapeHtml(p.notes_init || '')}</textarea></div>
-    </div>`;
+      <div class="form-row">
+        <div class="field"><label>Fonction</label><input id="f_fonction" value="${escapeAttr(p.contact_fonction||'')}"></div>
+        <div class="field"><label>Email *</label><input id="f_email" type="email" value="${escapeAttr(p.email||'')}"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>📱 Mobile</label><input id="f_mobile" value="${escapeAttr(p.mobile||'')}" placeholder="06…"></div>
+        <div class="field"><label>☎️ Téléphone fixe</label><input id="f_tel" value="${escapeAttr(p.telephone||'')}"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>LinkedIn</label><input id="f_linkedin" value="${escapeAttr(p.linkedin_url||'')}" placeholder="https://linkedin.com/in/…"></div>
+        <div class="field"><label>Facebook</label><input id="f_facebook" value="${escapeAttr(p.facebook_url||'')}" placeholder="https://facebook.com/…"></div>
+      </div>
+    `)}
+    ${_sec('🏢 Société', `
+      <div class="form-row">
+        <div class="field"><label>Enseigne *</label><input id="f_enseigne" value="${escapeAttr(p.enseigne||'')}"></div>
+        <div class="field"><label>Cible</label><select id="f_cible"><option value="concessionnaire"${p.cible==='concessionnaire'?' selected':''}>Concessionnaire</option><option value="independant"${p.cible==='independant'?' selected':''}>Indépendant</option><option value="negoce"${p.cible==='negoce'?' selected':''}>Négoce</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Ville</label><input id="f_ville" value="${escapeAttr(p.ville||'')}"></div>
+        <div class="field"><label>Dept</label><input id="f_dept" value="${escapeAttr(p.dept||'')}"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>SIREN</label><input id="f_siren" value="${escapeAttr(p.siren||'')}" placeholder="790758338"></div>
+        <div class="field"><label>Code postal</label><input id="f_cp" value="${escapeAttr(p.cp||'')}"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Fournisseur actuel</label><input id="f_fournisseur" value="${escapeAttr(p.fournisseur||'')}"></div>
+        <div class="field" style="display:flex;align-items:flex-end;"><button class="btn btn-ia btn-sm" onclick="rescoreProspect()" ${aiAvailable()?'':'disabled'} style="width:100%;">${aiAvailable()?'Re-scorer avec IA':'Configure le moteur IA'}</button></div>
+      </div>
+      <div class="form-row full"><div class="field"><label>Notes / Contexte</label><textarea id="f_notes">${escapeHtml(p.notes_init||'')}</textarea></div></div>
+    `)}
+    ${isExisting ? renderDevisSection(p) : ''}
+  </div>`;
 
-  // Accès rapide "fiche à emporter" : localisation + contact + RDV
-  const quickBar = isExisting ? `
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-      <button class="btn btn-sm" onclick="openProspectMaps('${p.id}')">📍 Localiser (Maps)</button>
-      <button class="btn btn-sm" onclick="downloadVCard('${p.id}')">📇 Contact (vCard)</button>
-      <button class="btn btn-sm" onclick="agendaDownloadIcs('${p.id}', (STATE.currentProspect && STATE.currentProspect.nextAction && STATE.currentProspect.nextAction.date) ? 'action' : 'close')">📅 RDV (.ics)</button>
-      <button class="btn btn-sm btn-primary" onclick="shareProspect('${p.id}')">📤 Partager</button>
-    </div>` : '';
+  // ── TAB REMISES ───────────────────────────────────────────────────────────
+  const tabRemises = _client ? `<div id="ptab-remises" style="display:none;padding-top:18px;">${renderRemisesSection(p)}</div>` : '';
 
-  const prepaCard = isExisting ? `<div id="prepaRdvBox">${renderPrepaRdv(p)}</div>` : '';
-  const devisBlock = isExisting ? renderDevisSection(p) : '';
-
-  body.innerHTML = hero + quickBar + tabbar
-    + `<div id="ptab-fiche">${contactabilityBlock}${prepaCard}${actionCard}${ficheFields}${devisBlock}</div>`
+  // ── ASSEMBLAGE ────────────────────────────────────────────────────────────
+  body.innerHTML = hero + tabbar
+    + (tabVue || '')
+    + tabEditer
+    + tabRemises
     + (isExisting ? `<div id="ptab-ia" style="display:none;">${renderBriefSection(p)}</div>` : '')
     + (isExisting ? `<div id="ptab-suivi" style="display:none;">${renderActionsSection(p)}${renderNotesSection(p)}</div>` : '');
 }
 
 // ===== PRÉPA-RDV (v4.11) — tout pour préparer un RDV en un coup d'œil =====
-function renderPrepaRdv(p) {
-  // Coordonnées cliquables (tel / mail / maps / linkedin)
-  const coord = [];
-  if (p.mobile) coord.push(`<a href="tel:${escapeAttr(p.mobile.replace(/\s/g,''))}" style="color:var(--fpee-blue);text-decoration:none;">📱 ${escapeHtml(p.mobile)}</a>`);
-  if (p.telephone) coord.push(`<a href="tel:${escapeAttr(p.telephone.replace(/\s/g,''))}" style="color:var(--fpee-blue);text-decoration:none;">☎️ ${escapeHtml(p.telephone)}</a>`);
-  if (p.email && !/^contact-a-trouver-/.test(p.email)) coord.push(`<a href="mailto:${escapeAttr(p.email)}" style="color:var(--fpee-blue);text-decoration:none;">✉️ ${escapeHtml(p.email)}</a>`);
-  const adr = prospectAddressStr(p);
-  if (adr) coord.push(`<a href="${escapeAttr(prospectMapsUrl(p))}" target="_blank" rel="noopener" style="color:var(--fpee-blue);text-decoration:none;">📍 ${escapeHtml(adr)}</a>`);
-  if (p.linkedin_url) coord.push(`<a href="${escapeAttr(p.linkedin_url)}" target="_blank" rel="noopener" style="color:var(--linkedin);text-decoration:none;">in LinkedIn</a>`);
-
-  // Actions à mener : prochaine action + étapes de séquence dues
-  const actions = [];
-  if (p.nextAction && p.nextAction.text) {
-    const over = p.nextAction.date && parseDate(p.nextAction.date) < today();
-    actions.push(`🎯 ${escapeHtml(p.nextAction.text)}${p.nextAction.date ? ' · ' + fmtDate(p.nextAction.date) : ''}${over ? ' <strong style="color:var(--danger)">en retard</strong>' : ''}`);
-  }
-  const nE = getNextStep(p, 'email'), nL = getNextStep(p, 'linkedin');
-  if (nE && nE.dueDate <= today()) actions.push(`📧 Séquence email à envoyer (${escapeHtml((STATE.sequenceEmail[nE.stepIdx]||{}).label||'')})`);
-  if (nL && nL.dueDate <= today()) actions.push(`in Action LinkedIn à traiter`);
-  if (!actions.length) actions.push('<span style="color:var(--muted);font-style:italic;">Aucune action planifiée — définis-en une ci-dessous</span>');
-
-  // Devis en cours
-  const dc = prospectDevisEnCours(p);
-  const devisHtml = dc.length ? dc.map(d => {
-    const s = devisStatut(d.statut);
-    return `<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:3px 0;">
-      <span style="min-width:0;"><strong>${formatCurrency(d.montant||0)}</strong>${d.ref ? ' · ' + escapeHtml(d.ref) : ''}${d.remise ? ' · <span style="color:var(--accent);font-weight:700;">-' + d.remise + '%</span>' : ''}</span>
-      <span style="background:${s.c};color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;white-space:nowrap;">${s.l}</span>
-    </div>`;
-  }).join('') : '<span style="color:var(--muted);font-style:italic;">Aucun devis en cours</span>';
-  const remise = prospectRemiseMax(p);
-
-  return `
-    <div style="border:2px solid var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:18px;background:linear-gradient(135deg,#fffaf3,#fff);">
-      <div style="font-family:var(--sans);font-size:12px;font-weight:800;color:var(--accent);margin-bottom:11px;text-transform:uppercase;letter-spacing:.6px;">🤝 Prépa RDV — tout en un coup d'œil</div>
-      <div style="display:grid;grid-template-columns:1fr;gap:12px;">
-        <div>
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">📇 Coordonnées</div>
-          <div style="display:flex;flex-direction:column;gap:3px;font-size:13.5px;">${coord.length ? coord.join('') : '<span style="color:var(--muted);font-style:italic;">À compléter</span>'}</div>
-        </div>
-        <div>
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">✅ Actions à mener</div>
-          <div style="display:flex;flex-direction:column;gap:3px;font-size:13.5px;">${actions.map(a => '<div>' + a + '</div>').join('')}</div>
-        </div>
-        <div>
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">💶 Devis en cours${remise ? ' · remise max consentie <span style="color:var(--accent);">-' + remise + '%</span>' : ''}</div>
-          <div style="font-size:13.5px;">${devisHtml}</div>
-        </div>
-      </div>
-    </div>`;
-}
-
-// ===== Section d'édition des devis (onglet Fiche) =====
+// ===== Section d'édition des devis (onglet Modifier) =====
 function renderDevisSection(p) {
   const list = prospectDevis(p);
   const rows = list.length ? list.map(d => {
@@ -8647,12 +8729,21 @@ function renderDevisSection(p) {
 }
 async function _devisPersist() {
   await saveKey('prospects', STATE.prospects);
-  // rafraîchit les blocs dépendants de la fiche ouverte
   const p = STATE.currentProspect; if (!p) return;
   const sec = document.getElementById('devisSection');
   if (sec) sec.outerHTML = renderDevisSection(p);
+  // Rafraîchit la mini-liste devis dans l'onglet Vue
   const prep = document.getElementById('prepaRdvBox');
-  if (prep) prep.innerHTML = renderPrepaRdv(p);
+  if (prep) {
+    const dc = prospectDevisEnCours(p);
+    prep.innerHTML = dc.length ? dc.map(d => {
+      const s = devisStatut(d.statut);
+      return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--rule);margin-bottom:6px;">
+        <div><span style="font-weight:700;">${formatCurrency(d.montant||0)}</span>${d.ref?' <span style="color:var(--muted);font-size:12px;">'+escapeHtml(d.ref)+'</span>':''}</div>
+        <div style="display:flex;align-items:center;gap:6px;">${d.remise?`<span style="color:var(--accent);font-weight:700;font-size:12px;">-${d.remise}%</span>`:''}<span style="background:${s.c};color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;">${s.l}</span></div>
+      </div>`;
+    }).join('') : '<div style="font-size:12.5px;color:var(--muted);font-style:italic;padding:6px 0;">Aucun devis en cours.</div>';
+  }
   if (typeof renderProspects === 'function') renderProspects();
 }
 async function devisAdd() {
@@ -8719,11 +8810,17 @@ function renderBriefSection(p) {
       <div style="display:flex;gap:4px;flex-wrap:wrap;">
         <button class="btn btn-sm" style="background:var(--gold);color:white;border-color:var(--gold);" onclick="runBodaccCheck()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:6px"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>BODACC</button>
         <button class="btn btn-sm" style="background:var(--moss);color:white;border-color:var(--moss);" onclick="runRgeCheck()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:6px"><path d="M5 19c0-8 6-13 14-13 0 8-5 14-14 14"/><path d="M5 19c2-4.5 5-6.5 9-7.5"/></svg>RGE</button>
+        <button class="btn btn-sm" style="background:#3B6FD4;color:white;border-color:#3B6FD4;" onclick="runInseeCheck()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:6px"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>INSEE</button>
+        <button class="btn btn-sm" style="background:#E85C1A;color:white;border-color:#E85C1A;" onclick="runFtCheck()" title="${ftConfigured()?'Offres d\'emploi actives':'Configurer France Travail dans Connexions › Signaux'}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:6px"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Emplois</button>
+        <button class="btn btn-sm" style="background:#7B3FA0;color:white;border-color:#7B3FA0;" onclick="runInpiCheck()" title="${inpiConfigured()?'RNE + Comptes annuels INPI':'Configurer INPI dans Connexions › Finance'}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:6px"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>INPI</button>
       </div>
     </div>
     <div id="bodaccBox">${p.bodaccData ? renderBodaccCards(p.bodaccData) : ''}</div>
     <div id="rgeBox" style="margin-top:8px;">${p.rgeData ? renderRgeCard(p.rgeData) : ''}</div>
-    ${!p.bodaccData && !p.rgeData ? '<div style="font-size:12px;color:var(--muted);font-style:italic;margin-top:6px;padding:8px 10px;background:var(--paper-warm);border-radius:6px;"><strong>Sources gratuites :</strong> 📜 <strong>BODACC</strong> = annonces légales (changements dirigeant, ventes, procédures collectives) — DILA officielle, gratuit. 🌿 <strong>RGE</strong> = certifications Qualibat/Qualit EnR — ADEME officielle, gratuit. Nécessite un SIREN sur la fiche.</div>' : ''}
+    <div id="inseeBox" style="margin-top:8px;">${p.inseeData ? renderInseeCard(p.inseeData) : ''}</div>
+    <div id="ftBox" style="margin-top:8px;">${p.ftData ? renderFtCard(p.ftData) : ''}</div>
+    <div id="inpiBox" style="margin-top:8px;">${p.inpiData ? renderInpiCard(p.inpiData) : ''}</div>
+    ${!p.bodaccData && !p.rgeData && !p.inseeData && !p.ftData && !p.inpiData ? '<div style="font-size:12px;color:var(--muted);font-style:italic;margin-top:6px;padding:8px 10px;background:var(--paper-warm);border-radius:6px;"><strong>Sources gratuites :</strong> 📜 <strong>BODACC</strong> = annonces légales · 🌿 <strong>RGE</strong> = certifications ADEME · 🏛️ <strong>INSEE</strong> = fiche officielle · 💼 <strong>INPI</strong> = RNE + comptes annuels. Nécessite un SIREN sur la fiche.</div>' : ''}
 
     <hr style="border:0;border-top:1px solid var(--rule);margin:16px 0;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:6px;flex-wrap:wrap;">
@@ -8923,7 +9020,8 @@ async function saveProspect() {
     notes_init: document.getElementById('f_notes').value.trim(),
     montant: parseFloat(document.getElementById('f_montant')?.value) || 0,
     closeDate: (document.getElementById('f_closedate')?.value || ''),
-    nextAction: (function(){ const t=(document.getElementById('f_nextaction')?.value||'').trim(); const d=(document.getElementById('f_nextdate')?.value||''); return t ? { text:t, date:d } : null; })()
+    nextAction: (function(){ const t=(document.getElementById('f_nextaction')?.value||'').trim(); const d=(document.getElementById('f_nextdate')?.value||''); return t ? { text:t, date:d } : null; })(),
+    remises: (function(){ const r={}; REMISES_COLS.forEach(c=>{ const v=document.getElementById('rem_'+c.key); if(v && v.value!=='') r[c.key]=parseFloat(v.value)||0; }); return r; })()
   };
 
   if (STATE.currentProspect) {
@@ -11172,6 +11270,430 @@ function renderRgeCard(data) {
 }
 
 /* ==========================================================
+   MODULE INSEE — Fiche officielle entreprise (API Recherche Entreprises, gratuite)
+   Signaux : statut actif/fermé, changement de dirigeant, tranche effectifs, NAF
+   ========================================================== */
+
+const INSEE_NAF_MENUISERIE = new Set(['43.32A','43.32B','43.99C','43.29A','43.91A','47.52B','46.13Z']);
+const INSEE_EFFECTIF_LABELS = {
+  '00':'0 salarié','01':'1–2','02':'3–5','03':'6–9','11':'10–19','12':'20–49',
+  '21':'50–99','22':'100–199','31':'200–249','32':'250–499','41':'500–999',
+  '42':'1 000–1 999','51':'2 000–4 999','52':'5 000–9 999','53':'10 000 +'
+};
+
+async function fetchInseeData(siren) {
+  if (!siren) throw new Error('SIREN requis');
+  const sirenClean = siren.toString().replace(/\s/g, '');
+  const url = `${SIRENE_API}?q=${encodeURIComponent(sirenClean)}&per_page=1`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`INSEE ${r.status}`);
+  const d = await r.json();
+  const e = (d.results || [])[0];
+  if (!e) throw new Error('Entreprise introuvable dans la base INSEE');
+  return e;
+}
+
+async function runInseeCheck() {
+  if (!STATE.currentProspect) return;
+  const p = STATE.currentProspect;
+  const box = document.getElementById('inseeBox');
+  if (!box) return;
+
+  if (!p.siren) {
+    toast('Aucun SIREN sur cette fiche — enrichis d\'abord via INSEE Découverte ou Enrichissement IA', 'warning');
+    return;
+  }
+
+  box.innerHTML = '<div class="ia-loader"><div class="ia-spinner"></div>Consultation INSEE Sirene…</div>';
+
+  try {
+    const raw = await fetchInseeData(p.siren);
+
+    // Normaliser les données utiles
+    const etat = raw.etat_administratif || 'A';
+    const naf = (raw.activite_principale || '').replace(/\./g, '.').substring(0,6);
+    const tranche = raw.tranche_effectif_salarie || '';
+    const dirigeants = (raw.dirigeants || []).map(d => ({
+      nom: (d.nom || '').toUpperCase(),
+      prenom: d.prenom || '',
+      qualite: d.qualite || d.type || ''
+    }));
+    const siege = raw.siege || {};
+    const nom = raw.nom_raison_sociale || raw.nom_complet || '';
+    const dateCreation = raw.date_creation || '';
+    const categorie = raw.categorie_entreprise || '';
+
+    // Détecter changement de dirigeant (vs données stockées)
+    let dirigeantChange = false;
+    if (dirigeants.length > 0 && p.contact_nom) {
+      const stored = p.contact_nom.toUpperCase().trim();
+      const found = dirigeants.some(d => d.nom && stored.includes(d.nom));
+      if (!found) dirigeantChange = true;
+    }
+
+    const data = {
+      date: new Date().toISOString(),
+      etat, naf, tranche, dirigeants, siege, nom, dateCreation, categorie,
+      raw, dirigeantChange,
+      menuiserie: INSEE_NAF_MENUISERIE.has(naf)
+    };
+
+    p.inseeData = data;
+    saveProspects();
+    box.innerHTML = renderInseeCard(data);
+
+    const alerts = [];
+    if (etat !== 'A') alerts.push('⚠️ Statut non actif');
+    if (dirigeantChange) alerts.push('🔄 Dirigeant différent du contact enregistré');
+    if (alerts.length) toast(alerts.join(' · '), 'warning');
+    else toast('✓ INSEE mis à jour', 'success');
+
+    // Auto-vérification BODACC silencieuse si pas encore fait
+    if (!p.bodaccData) {
+      try {
+        const annonces = await fetchBodaccAnnonces(p.siren);
+        p.bodaccData = {
+          date: new Date().toISOString(), count: annonces.length,
+          annonces: annonces.map(a => { const c = classifyBodaccAnnonce(a); return { date: a.dateparution, kind: c.kind, severity: c.severity, label: c.label, famille: a.familleavis_lib || a.familleavis, type: a.typeavis_lib || a.typeavis, ville: a.ville, tribunal: a.tribunal }; })
+        };
+        saveProspects();
+        const ba = getBodaccAlert(p);
+        if (ba && ba.severity === 'critical') {
+          toast(`🚨 BODACC — Procédure collective détectée pour ${p.enseigne}. Stopper la prospection.`, 'danger');
+          if (typeof renderProspects === 'function') renderProspects();
+        } else if (ba) {
+          toast(`⚠️ BODACC — ${ba.label} détecté pour ${p.enseigne}`, 'warning');
+        }
+      } catch(e) { /* silencieux */ }
+    }
+
+  } catch(e) {
+    box.innerHTML = `<div class="alert danger">Erreur INSEE : ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderInseeCard(data) {
+  if (!data) return '';
+  const etatBadge = data.etat === 'A'
+    ? '<span style="color:var(--success);font-weight:700;">✅ Actif</span>'
+    : `<span style="color:var(--danger);font-weight:700;">⛔ ${data.etat === 'F' ? 'Fermé' : data.etat === 'C' ? 'Cessé' : 'Non actif'}</span>`;
+
+  const nafLabel = data.menuiserie
+    ? `<span style="color:var(--moss);font-weight:600;">${data.naf} ✓ menuiserie</span>`
+    : `<span>${data.naf || '—'}</span>`;
+
+  const effectif = INSEE_EFFECTIF_LABELS[data.tranche] || (data.tranche ? data.tranche : '—');
+
+  const dirsHtml = data.dirigeants && data.dirigeants.length
+    ? data.dirigeants.map(d => {
+        const warn = data.dirigeantChange && d === data.dirigeants[0]
+          ? ' <span style="color:var(--warning);font-size:10px;">≠ contact enregistré</span>' : '';
+        return `<div style="font-size:13px;">${escapeHtml(d.prenom)} <strong>${escapeHtml(d.nom)}</strong> <span style="color:var(--muted);font-size:11px;">${escapeHtml(d.qualite)}</span>${warn}</div>`;
+      }).join('')
+    : '<span style="color:var(--muted);font-size:12px;">Non diffusé</span>';
+
+  const adresse = data.siege
+    ? [data.siege.adresse, data.siege.code_postal, data.siege.commune].filter(Boolean).join(' ')
+    : '';
+
+  return `<div style="background:var(--surface-2);border:1px solid var(--border-1);border-radius:var(--radius);padding:14px;margin-top:4px;">
+    <h4 style="font-size:14px;font-weight:700;margin:0 0 10px;display:flex;align-items:center;gap:8px;">
+      🏛️ INSEE Sirene
+      <span style="font-size:11px;color:var(--muted);font-weight:400;">Consulté le ${new Date(data.date).toLocaleDateString('fr-FR')}</span>
+    </h4>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:13px;">
+      <div class="intel-row"><span class="label">Statut</span><span class="value">${etatBadge}</span></div>
+      <div class="intel-row"><span class="label">NAF</span><span class="value">${nafLabel}</span></div>
+      <div class="intel-row"><span class="label">Effectifs</span><span class="value">${escapeHtml(effectif)} sal.</span></div>
+      <div class="intel-row"><span class="label">Catégorie</span><span class="value">${escapeHtml(data.categorie || '—')}</span></div>
+      ${adresse ? `<div class="intel-row" style="grid-column:1/-1"><span class="label">Siège</span><span class="value">${escapeHtml(adresse)}</span></div>` : ''}
+    </div>
+    <div style="margin-top:10px;"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Dirigeant(s)</div>${dirsHtml}</div>
+  </div>`;
+}
+
+/* ==========================================================
+   MODULE FRANCE TRAVAIL — Offres d'emploi (signal recrutement = croissance)
+   Auth : OAuth2 client_credentials (gratuit, compte francetravail.io requis)
+   API  : api.francetravail.io/partenaire/offresdemploi/v2/offres/search
+   ========================================================== */
+
+const FT_TOKEN_URL  = 'https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=%2Fpartenaire';
+const FT_OFFRES_URL = 'https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search';
+const FT_MOTS_CLES  = 'menuisier menuiserie fenêtre porte volet';
+
+async function fetchFtToken() {
+  const id = (STATE.ftClientId || '').trim();
+  const secret = (STATE.ftClientSecret || '').trim();
+  if (!id || !secret) throw new Error('France Travail non configuré — renseigne ton Client ID + Secret dans Connexions › Signaux faibles');
+  const body = new URLSearchParams({ grant_type: 'client_credentials', client_id: id, client_secret: secret, scope: 'api_offresdemploiv2 o2dsoffre' });
+  const r = await fetch(FT_TOKEN_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+  if (!r.ok) {
+    const msg = await r.text().catch(() => '');
+    throw new Error(`Auth France Travail ${r.status} — vérifie ton Client ID + Secret sur francetravail.io/nos-api. ${msg.substring(0,120)}`);
+  }
+  const d = await r.json();
+  STATE.ftToken = d.access_token;
+  STATE.ftTokenExp = Date.now() + ((d.expires_in || 1500) - 60) * 1000;
+  return d.access_token;
+}
+
+async function getFtToken() {
+  if (STATE.ftToken && STATE.ftTokenExp > Date.now()) return STATE.ftToken;
+  return fetchFtToken();
+}
+
+async function fetchFtOffres(nom, dept, siren) {
+  const token = await getFtToken();
+  const deptCode = (dept || '').toString().replace(/\D/g,'').substring(0,2).padStart(2,'0');
+  const params = new URLSearchParams({ motsCles: FT_MOTS_CLES, range: '0-14' });
+  if (deptCode && deptCode !== '00') params.set('departement', deptCode);
+  const r = await fetch(`${FT_OFFRES_URL}?${params}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }
+  });
+  if (r.status === 204) return { offres: [], totalDept: 0, matchedCompany: false, date: new Date().toISOString() };
+  if (!r.ok) throw new Error(`France Travail ${r.status}`);
+  const d = await r.json();
+  const all = d.resultats || [];
+  // Essai de match sur SIREN (dans le siret) puis sur nom normalisé
+  const sirenClean = (siren || '').replace(/\s/g,'');
+  const nomNorm = (nom || '').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const matched = all.filter(o => {
+    if (sirenClean && o.entreprise?.siret) return o.entreprise.siret.startsWith(sirenClean);
+    const oNom = (o.entreprise?.nom || '').toLowerCase().replace(/[^a-z0-9]/g,'');
+    return oNom && nomNorm && oNom.length >= 4 && (oNom.includes(nomNorm.substring(0,6)) || nomNorm.includes(oNom.substring(0,4)));
+  });
+  const crHeader = r.headers.get('Content-Range') || '';
+  const totalDept = crHeader ? (parseInt(crHeader.split('/')[1]) || all.length) : all.length;
+  return { offres: matched, totalDept, matchedCompany: matched.length > 0, date: new Date().toISOString() };
+}
+
+async function runFtCheck() {
+  if (!STATE.currentProspect) return;
+  const p = STATE.currentProspect;
+  const box = document.getElementById('ftBox');
+  if (!box) return;
+  if (!STATE.ftClientId || !STATE.ftClientSecret) {
+    toast('France Travail non configuré — va dans Connexions › Signaux faibles', 'warning');
+    return;
+  }
+  box.innerHTML = '<div class="ia-loader"><div class="ia-spinner"></div>Consultation France Travail offres d\'emploi…</div>';
+  try {
+    const data = await fetchFtOffres(p.enseigne, p.dept, p.siren);
+    p.ftData = data;
+    saveProspects();
+    box.innerHTML = renderFtCard(data);
+    if (data.matchedCompany) toast(`🚨 ${data.offres.length} offre(s) active(s) pour ${p.enseigne} sur France Travail !`, 'warning');
+    else toast('✓ France Travail consulté', 'success');
+  } catch(e) {
+    box.innerHTML = `<div class="alert danger">Erreur France Travail : ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderFtCard(data) {
+  if (!data) return '';
+  const badge = data.matchedCompany
+    ? '<span style="background:rgba(220,53,69,.15);color:var(--danger);font-size:11px;padding:2px 8px;border-radius:12px;font-weight:700;">🚨 Recrute !</span>'
+    : '';
+  const offresHtml = data.offres && data.offres.length > 0
+    ? data.offres.map(o => `<div style="padding:7px 0;border-bottom:1px solid var(--border-1);font-size:13px;">
+        <div style="font-weight:600;">${escapeHtml(o.intitule || '—')}</div>
+        <div style="color:var(--muted);font-size:11px;">${escapeHtml(o.entreprise?.nom||'')} · ${escapeHtml(o.lieuTravail?.libelle||'')} · ${o.dateCreation ? new Date(o.dateCreation).toLocaleDateString('fr-FR') : ''}</div>
+      </div>`).join('')
+    : `<div style="font-size:12px;color:var(--muted);font-style:italic;">Aucune offre détectée pour cette entreprise spécifiquement. (${data.totalDept||0} offres menuiserie dans le département — toutes entreprises)</div>`;
+  return `<div style="background:var(--surface-2);border:1px solid var(--border-1);border-radius:var(--radius);padding:14px;margin-top:4px;">
+    <h4 style="font-size:14px;font-weight:700;margin:0 0 10px;display:flex;align-items:center;gap:8px;">
+      📈 France Travail · Offres d'emploi ${badge}
+      <span style="font-size:11px;color:var(--muted);font-weight:400;">Consulté le ${new Date(data.date).toLocaleDateString('fr-FR')}</span>
+    </h4>
+    ${offresHtml}
+    ${data.offres.length === 0 ? `<div style="font-size:11px;color:var(--muted);margin-top:6px;">${data.totalDept||0} offres menuiserie dans le département (toutes entreprises confondues)</div>` : ''}
+  </div>`;
+}
+
+async function saveFtConfig(id, secret) {
+  STATE.ftClientId = id.trim();
+  STATE.ftClientSecret = secret.trim();
+  STATE.ftToken = null; STATE.ftTokenExp = 0;
+  await saveKey('ft_client_id', STATE.ftClientId);
+  await saveKey('ft_client_secret', STATE.ftClientSecret);
+  toast('✓ France Travail configuré', 'success');
+  renderConnections();
+}
+
+function ftConfigured() { return !!(STATE.ftClientId && STATE.ftClientSecret); }
+
+/* ==========================================================
+   MODULE INPI — RNE + Comptes annuels (API REST gratuite)
+   Auth : POST api.inpi.fr/token (username/password → Bearer)
+   RNE  : registre-national-des-entreprises.inpi.fr/rne/v3.0/entreprises/{siren}
+   CA   : data.inpi.fr/comptes-annuels/{siren}
+   ========================================================== */
+
+const INPI_TOKEN_URL  = 'https://api.inpi.fr/token';
+const INPI_RNE_URL    = 'https://registre-national-des-entreprises.inpi.fr/rne/v3.0/entreprises';
+const INPI_CA_URL     = 'https://data.inpi.fr/comptes-annuels';
+
+function inpiConfigured() { return !!(STATE.inpiUser && STATE.inpiPass); }
+
+async function fetchInpiToken() {
+  const u = (STATE.inpiUser || '').trim(), p = (STATE.inpiPass || '').trim();
+  if (!u || !p) throw new Error('INPI non configuré — renseigne utilisateur + mot de passe dans Connexions › Finance');
+  const body = new URLSearchParams({ grant_type: 'password', username: u, password: p });
+  const r = await fetch(INPI_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString()
+  });
+  if (!r.ok) throw new Error(`INPI auth ${r.status} — vérifie identifiants data.inpi.fr`);
+  const d = await r.json();
+  STATE.inpiToken = d.access_token;
+  STATE.inpiTokenExp = Date.now() + ((d.expires_in || 3500) - 60) * 1000;
+  return d.access_token;
+}
+
+async function getInpiToken() {
+  if (STATE.inpiToken && STATE.inpiTokenExp > Date.now()) return STATE.inpiToken;
+  return fetchInpiToken();
+}
+
+async function fetchInpiRne(siren) {
+  const token = await getInpiToken();
+  const r = await fetch(`${INPI_RNE_URL}/${siren.replace(/\s/g,'')}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }
+  });
+  if (!r.ok) throw new Error(`INPI RNE ${r.status}`);
+  return r.json();
+}
+
+async function fetchInpiComptes(siren) {
+  const token = await getInpiToken();
+  const r = await fetch(`${INPI_CA_URL}/${siren.replace(/\s/g,'')}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }
+  });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`INPI CA ${r.status}`);
+  return r.json();
+}
+
+async function runInpiCheck() {
+  if (!STATE.currentProspect) return;
+  const p = STATE.currentProspect;
+  const box = document.getElementById('inpiBox');
+  if (!box) return;
+  if (!inpiConfigured()) { toast('INPI non configuré — va dans Connexions › Finance', 'warning'); return; }
+  if (!p.siren) { toast('SIREN requis pour interroger l\'INPI', 'warning'); return; }
+
+  box.innerHTML = '<div class="ia-loader"><div class="ia-spinner"></div>Consultation INPI RNE + Comptes annuels…</div>';
+  try {
+    const [rne, ca] = await Promise.allSettled([fetchInpiRne(p.siren), fetchInpiComptes(p.siren)]);
+    const rneData = rne.status === 'fulfilled' ? rne.value : null;
+    const caData  = ca.status  === 'fulfilled' ? ca.value  : null;
+
+    const data = { date: new Date().toISOString(), rne: rneData, ca: caData };
+    p.inpiData = data;
+    saveProspects();
+    box.innerHTML = renderInpiCard(data);
+
+    const alerts = [];
+    if (caData) {
+      const last = (caData.comptes || caData.liasse || [])[0];
+      if (last && last.chiffre_affaires_net) alerts.push(`CA ${(last.chiffre_affaires_net/1000).toFixed(0)} k€`);
+    }
+    if (alerts.length) toast('✓ INPI — ' + alerts.join(' · '), 'success');
+    else toast('✓ INPI consulté', 'success');
+  } catch(e) {
+    box.innerHTML = `<div class="alert danger">Erreur INPI : ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function _inpiCaEvol(comptes) {
+  if (!comptes || comptes.length < 2) return null;
+  const [n, n1] = comptes;
+  const ca = n.chiffre_affaires_net || n.ca_ht;
+  const ca1 = n1.chiffre_affaires_net || n1.ca_ht;
+  if (!ca || !ca1) return null;
+  return Math.round(((ca - ca1) / ca1) * 100);
+}
+
+function renderInpiCard(data) {
+  if (!data) return '';
+  const rne = data.rne || {};
+  const comptes = data.ca ? (data.ca.comptes || data.ca.liasse || []) : [];
+  const last = comptes[0] || {};
+
+  // Capital
+  const capital = rne.identite?.capital?.montant;
+  const capitalStr = capital ? `${Number(capital).toLocaleString('fr-FR')} €` : null;
+
+  // Actes récents (max 4)
+  const actes = (rne.actes || []).slice(0, 4);
+
+  // Dirigeants INPI (peut être plus complet que INSEE)
+  const dirs = (rne.beneficiaires || rne.dirigeants || []).slice(0, 3);
+
+  // CA + évolution
+  const ca = last.chiffre_affaires_net || last.ca_ht;
+  const resultat = last.resultat_net || last.resultat;
+  const effectif = last.effectif_moyen || last.effectif;
+  const evol = _inpiCaEvol(comptes);
+  const evolStr = evol !== null
+    ? `<span style="color:${evol >= 0 ? 'var(--success)' : 'var(--danger)'};">${evol >= 0 ? '▲' : '▼'} ${Math.abs(evol)}% vs N-1</span>`
+    : '';
+
+  const actesHtml = actes.length
+    ? actes.map(a => `<div style="font-size:12px;padding:3px 0;border-bottom:1px solid var(--border-1);">
+        <strong>${escapeHtml(a.typeActe?.libelle || a.type || '—')}</strong>
+        <span style="color:var(--muted);font-size:11px;margin-left:6px;">${a.dateDepot ? new Date(a.dateDepot).toLocaleDateString('fr-FR') : ''}</span>
+      </div>`).join('')
+    : '<span style="font-size:12px;color:var(--muted);">Aucun acte récent</span>';
+
+  return `<div style="background:var(--surface-2);border:1px solid var(--border-1);border-radius:var(--radius);padding:14px;margin-top:4px;">
+    <h4 style="font-size:14px;font-weight:700;margin:0 0 10px;display:flex;align-items:center;gap:8px;">
+      💼 INPI · RNE & Comptes annuels
+      <span style="font-size:11px;color:var(--muted);font-weight:400;">Consulté le ${new Date(data.date).toLocaleDateString('fr-FR')}</span>
+    </h4>
+
+    ${ca || resultat || effectif ? `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
+      ${ca ? `<div style="text-align:center;padding:8px;background:var(--surface-3);border-radius:8px;">
+        <div style="font-size:18px;font-weight:800;color:var(--beetob-blue);">${(ca/1000).toFixed(ca>=1000000?0:1)} ${ca>=1000000?'M':'k'}€</div>
+        <div style="font-size:10px;color:var(--muted);">CA ${last.annee||''} ${evolStr}</div>
+      </div>` : ''}
+      ${resultat ? `<div style="text-align:center;padding:8px;background:var(--surface-3);border-radius:8px;">
+        <div style="font-size:18px;font-weight:800;color:${resultat>=0?'var(--success)':'var(--danger)'};">${(resultat/1000).toFixed(0)} k€</div>
+        <div style="font-size:10px;color:var(--muted);">Résultat net</div>
+      </div>` : ''}
+      ${effectif ? `<div style="text-align:center;padding:8px;background:var(--surface-3);border-radius:8px;">
+        <div style="font-size:18px;font-weight:800;color:var(--text-1);">${effectif}</div>
+        <div style="font-size:10px;color:var(--muted);">Effectif moyen</div>
+      </div>` : ''}
+    </div>` : comptes.length === 0 ? '<div style="font-size:12px;color:var(--muted);font-style:italic;margin-bottom:10px;">Comptes annuels non disponibles (moins de 55% des PME déposent au greffe).</div>' : ''}
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:13px;margin-bottom:10px;">
+      ${capitalStr ? `<div class="intel-row"><span class="label">Capital</span><span class="value">${capitalStr}</span></div>` : ''}
+      ${rne.identite?.formeJuridique?.libelle ? `<div class="intel-row"><span class="label">Forme</span><span class="value">${escapeHtml(rne.identite.formeJuridique.libelle)}</span></div>` : ''}
+    </div>
+
+    ${dirs.length ? `<div style="margin-bottom:10px;"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Dirigeants INPI</div>
+      ${dirs.map(d => `<div style="font-size:13px;padding:2px 0;">${escapeHtml((d.prenom||d.prenoms||'')+' '+(d.nom||d.denomination||''))} <span style="color:var(--muted);font-size:11px;">${escapeHtml(d.qualite||d.role||'')}</span></div>`).join('')}
+    </div>` : ''}
+
+    ${actes.length ? `<div><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Actes récents</div>${actesHtml}</div>` : ''}
+  </div>`;
+}
+
+async function saveInpiConfig(user, pass) {
+  STATE.inpiUser = user.trim(); STATE.inpiPass = pass.trim();
+  STATE.inpiToken = null; STATE.inpiTokenExp = 0;
+  await saveKey('inpi_user', STATE.inpiUser); await saveKey('inpi_pass', STATE.inpiPass);
+  try {
+    await fetchInpiToken();
+    toast('✓ INPI connecté', 'success');
+  } catch(e) { toast('⚠️ INPI : ' + e.message, 'warning'); }
+  renderConnections();
+}
+
+/* ==========================================================
    MODULE CHANTIERS — Marchés publics menuiserie (DECP, gratuit)
    Objet SÉPARÉ des prospects ; pont par SIREN du titulaire.
    ========================================================== */
@@ -11484,7 +12006,72 @@ function sf_computeSignals(p) {
     }
   }
 
-  // 3) BODACC (événements légaux datés)
+  // 3) INSEE — statut, effectifs, NAF, dirigeant
+  if (p.inseeData) {
+    const ins = p.inseeData;
+    // Statut non actif = risque critique
+    if (ins.etat && ins.etat !== 'A') {
+      sig.push({ family: 'risque', sev: 'crit', icon: '⛔', label: `Entreprise ${ins.etat === 'F' ? 'fermée' : ins.etat === 'C' ? 'cessée' : 'non active'} (INSEE)`, detail: `Statut ${ins.etat} — vérifier avant tout contact` });
+    }
+    // NAF menuiserie confirmé = signal de pertinence
+    if (ins.menuiserie && ins.naf) {
+      sig.push({ family: 'qualif', sev: 'low', icon: '🪟', label: `NAF menuiserie ${ins.naf}`, detail: 'Code NAF confirme l\'activité menuiserie extérieure — cœur de cible Art & Fenêtres' });
+    }
+    // Tranche effectifs : cible idéale = 3-49 salariés (02/03/11/12)
+    if (['02','03','11','12'].includes(ins.tranche)) {
+      const eff = INSEE_EFFECTIF_LABELS[ins.tranche] || ins.tranche;
+      sig.push({ family: 'croissance', sev: 'med', icon: '👥', label: `PME ${eff} salariés`, detail: `Taille idéale pour un partenariat réseau Art & Fenêtres (effectif confirmé INSEE)` });
+    } else if (['21','22'].includes(ins.tranche)) {
+      sig.push({ family: 'croissance', sev: 'low', icon: '🏢', label: `Structure ${INSEE_EFFECTIF_LABELS[ins.tranche]} salariés`, detail: 'Grande structure — approche réseau ou gros volume' });
+    }
+    // Changement de dirigeant détecté
+    if (ins.dirigeantChange) {
+      sig.push({ family: 'transition', sev: 'high', icon: '🔄', label: 'Dirigeant différent détecté (INSEE)', detail: 'Le dirigeant INSEE ne correspond pas au contact enregistré — opportunité de re-contact' });
+    }
+  }
+
+  // 4) France Travail — recrutement actif
+  if (p.ftData) {
+    if (p.ftData.matchedCompany && p.ftData.offres && p.ftData.offres.length > 0) {
+      sig.push({ family: 'croissance', sev: 'high', icon: '📈', label: `Recrute · ${p.ftData.offres.length} offre${p.ftData.offres.length > 1 ? 's' : ''} active${p.ftData.offres.length > 1 ? 's' : ''}`, detail: `Annonce(s) menuiserie/pose identifiée(s) sur France Travail — signal de croissance fort` });
+    } else if (p.ftData.totalDept > 10) {
+      sig.push({ family: 'croissance', sev: 'low', icon: '📈', label: `Zone active (${p.ftData.totalDept} offres dépt)`, detail: `Marché local dynamique : ${p.ftData.totalDept} offres menuiserie dans le département` });
+    }
+  }
+
+  // 5) INPI — Comptes annuels (CA, résultat, évolution)
+  if (p.inpiData) {
+    const comptes = p.inpiData.ca ? (p.inpiData.ca.comptes || p.inpiData.ca.liasse || []) : [];
+    if (comptes.length > 0) {
+      const last = comptes[0];
+      const resultat = last.resultat_net || last.resultat;
+      if (resultat !== undefined && resultat !== null) {
+        if (resultat < 0) {
+          sig.push({ family: 'risque', sev: 'high', icon: '📉', label: 'Résultat net négatif', detail: `Résultat ${(resultat/1000).toFixed(0)} k€ (INPI)`, date: null, stale: false });
+        } else if (resultat > 0) {
+          sig.push({ family: 'croissance', sev: 'low', icon: '💰', label: 'Résultat net positif', detail: `Résultat ${(resultat/1000).toFixed(0)} k€ (INPI)`, date: null, stale: false });
+        }
+      }
+      if (comptes.length >= 2) {
+        const ca = last.chiffre_affaires_net || last.ca_ht;
+        const ca1 = (comptes[1].chiffre_affaires_net || comptes[1].ca_ht);
+        if (ca && ca1) {
+          const evol = Math.round(((ca - ca1) / ca1) * 100);
+          if (evol >= 15) sig.push({ family: 'croissance', sev: 'med', icon: '📈', label: `CA en forte hausse +${evol}%`, detail: `${(ca/1000).toFixed(0)} k€ vs ${(ca1/1000).toFixed(0)} k€ N-1 (INPI)`, date: null, stale: false });
+          else if (evol <= -15) sig.push({ family: 'risque', sev: 'high', icon: '📉', label: `CA en forte baisse ${evol}%`, detail: `${(ca/1000).toFixed(0)} k€ vs ${(ca1/1000).toFixed(0)} k€ N-1 (INPI)`, date: null, stale: false });
+        }
+      }
+    }
+    // Actes récents (cession, dissolution, procédure)
+    const actes = p.inpiData.rne ? (p.inpiData.rne.actes || []) : [];
+    actes.forEach(a => {
+      const typeLib = (a.typeActe?.libelle || a.type || '').toLowerCase();
+      if (/dissolution|liquidation/.test(typeLib)) sig.push({ family: 'risque', sev: 'crit', icon: '🛑', label: 'Dissolution / Liquidation (RNE)', detail: a.dateDepot ? new Date(a.dateDepot).toLocaleDateString('fr-FR') : '', date: a.dateDepot||null, stale: false });
+      else if (/cession/.test(typeLib)) sig.push({ family: 'transition', sev: 'high', icon: '💼', label: 'Cession (RNE INPI)', detail: a.dateDepot ? new Date(a.dateDepot).toLocaleDateString('fr-FR') : '', date: a.dateDepot||null, stale: false });
+    });
+  }
+
+  // 6) BODACC (événements légaux datés)
   if (p.bodaccData && p.bodaccData.annonces) {
     const map = {
       creation: { family: 'croissance', icon: '✨', label: 'Immatriculation récente' },
@@ -11531,12 +12118,13 @@ function sf_maturity(sig) {
 }
 
 function sf_connectorCard() {
+  if (ftConfigured()) return '';  // Configuré → plus de carte "à connecter"
   return `<div class="sf-conn">
-    <div class="sf-conn-ico">📡</div>
+    <div class="sf-conn-ico">📈</div>
     <div class="sf-conn-body">
       <strong>Connecteur recrutement — France Travail</strong>
-      <p>Détecte les menuisiers qui <strong>recrutent en ce moment</strong> (signal de croissance fort). Gratuit, mais nécessite un compte développeur sur <em>francetravail.io</em> (OAuth2), comme l'INPI. L'emplacement est prêt : dès que tu as la clé, ce signal s'ajoutera automatiquement.</p>
-      <span class="sf-conn-badge">À connecter</span>
+      <p>Détecte les menuisiers qui <strong>recrutent en ce moment</strong> — signal de croissance fort. Gratuit, nécessite un compte développeur sur <a href="https://francetravail.io/nos-api" target="_blank" rel="noopener">francetravail.io</a>. Va dans <strong>Connexions › Signaux faibles</strong> pour renseigner ton Client ID + Secret.</p>
+      <span class="sf-conn-badge">⚠️ À configurer dans Connexions</span>
     </div>
   </div>`;
 }
@@ -11589,10 +12177,13 @@ function sf_render() {
 async function sf_scan() {
   const btn = document.getElementById('sf_scanBtn');
   const status = document.getElementById('sf_status');
-  const targets = STATE.prospects.filter(p => p.siren && (!p.rgeData || !p.bodaccData));
-  if (targets.length === 0) { toast('Tous les prospects avec SIREN sont déjà scannés'); sf_render(); return; }
-  if (!confirm(`Scanner ${targets.length} prospect(s) via RGE + BODACC ? Sources gratuites, ~${Math.ceil(targets.length * 1.2)}s.`)) return;
+  const ftActive = ftConfigured();
+  const targets = STATE.prospects.filter(p => p.siren && (!p.rgeData || !p.bodaccData || !p.inseeData || (ftActive && !p.ftData)));
+  if (targets.length === 0) { toast('Tous les prospects avec SIREN sont déjà scannés (RGE + BODACC + INSEE)'); sf_render(); return; }
+  const srcList = ['RGE','BODACC','INSEE'].concat(ftActive ? ['France Travail'] : []).join(' + ');
+  if (!confirm(`Scanner ${targets.length} prospect(s) via ${srcList} ? Sources gratuites, ~${Math.ceil(targets.length * (ftActive ? 2.5 : 1.8))}s.`)) return;
   btn.disabled = true;
+  btn.textContent = 'Scan en cours…';
   let done = 0;
   for (const p of targets) {
     done++;
@@ -11604,7 +12195,7 @@ async function sf_scan() {
         const domaines = [...new Set(certifs.map(c => c.domaine).filter(Boolean).flatMap(d => d.split(';').map(x => x.trim())).filter(Boolean))];
         p.rgeData = { date: new Date().toISOString(), count: certifs.length, activeCount: certifs.filter(isActive).length, fenetres: domaines.some(d => /fen[eê]tre|porte|volet/i.test(d)), certifs };
       }
-      await sleep(400);
+      await sleep(300);
       if (!p.bodaccData) {
         const annonces = await fetchBodaccAnnonces(p.siren);
         p.bodaccData = {
@@ -11612,12 +12203,30 @@ async function sf_scan() {
           annonces: annonces.map(a => { const c = classifyBodaccAnnonce(a); return { date: a.dateparution, kind: c.kind, severity: c.severity, label: c.label, famille: a.familleavis_lib || a.familleavis, type: a.typeavis_lib || a.typeavis, ville: a.ville, tribunal: a.tribunal, numeroParution: a.numeroparution }; })
         };
       }
-      await sleep(400);
+      await sleep(300);
+      if (!p.inseeData) {
+        const raw = await fetchInseeData(p.siren);
+        const etat = raw.etat_administratif || 'A';
+        const naf = (raw.activite_principale || '').substring(0,6);
+        const tranche = raw.tranche_effectif_salarie || '';
+        const dirigeants = (raw.dirigeants || []).map(d => ({ nom: (d.nom||'').toUpperCase(), prenom: d.prenom||'', qualite: d.qualite||d.type||'' }));
+        const dirigeantChange = dirigeants.length > 0 && p.contact_nom
+          ? !dirigeants.some(d => d.nom && p.contact_nom.toUpperCase().includes(d.nom)) : false;
+        p.inseeData = { date: new Date().toISOString(), etat, naf, tranche, dirigeants, siege: raw.siege||{}, nom: raw.nom_raison_sociale||'', categorie: raw.categorie_entreprise||'', menuiserie: INSEE_NAF_MENUISERIE.has(naf), dirigeantChange };
+      }
+      await sleep(300);
+      if (ftActive && !p.ftData) {
+        try {
+          p.ftData = await fetchFtOffres(p.enseigne, p.dept, p.siren);
+        } catch(e) { /* FT peut échouer individuellement */ }
+        await sleep(400);
+      }
     } catch (e) { /* on continue malgré une erreur ponctuelle */ }
     if (done % 3 === 0) { await saveKey('prospects', STATE.prospects); sf_render(); }
   }
   await saveKey('prospects', STATE.prospects);
   btn.disabled = false;
+  btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:6px"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M6 6a8.5 8.5 0 0 0 0 12"/><path d="M18 6a8.5 8.5 0 0 1 0 12"/></svg>Scanner les prospects (RGE + BODACC + INSEE' + (ftActive ? ' + France Travail' : '') + ')';
   if (status) status.textContent = `Scan terminé · ${targets.length} prospect(s) interrogé(s)`;
   sf_render();
 }
@@ -11912,22 +12521,28 @@ function renderConnFreeSources() {
 }
 
 function renderConnFinance() {
-  const inpiToken = STATE.inpiToken || null;
+  const cfg = inpiConfigured();
+  const inpiStatus = cfg
+    ? `<span class="conn-status active">🟢 Connecté</span>
+       <button class="btn btn-ghost btn-sm" onclick="STATE.inpiUser='';STATE.inpiPass='';STATE.inpiToken=null;saveKey('inpi_user','');saveKey('inpi_pass','');renderConnections();toast('INPI déconnecté')">Déconnecter</button>`
+    : `<span class="conn-status partial">🟡 À configurer</span>`;
+  const inpiMeta = cfg
+    ? `<strong>data.inpi.fr</strong> · RNE + Comptes annuels · Utilisateur : <strong>${escapeHtml(STATE.inpiUser)}</strong><br>Utilisée par : <strong>bouton 💼 INPI</strong> sur chaque fiche prospect`
+    : `<strong>data.inpi.fr</strong> · Bilans, CA, résultat net, marge, actes RNE<br>💰 <strong>Gratuit</strong> · Compte à créer sur <a href="https://data.inpi.fr" target="_blank" style="color:var(--link);">data.inpi.fr</a> · Couvre ~55% des PME`;
+
   document.getElementById('connFinanceList').innerHTML = `
-    <div class="conn-card partial">
+    <div class="conn-card ${cfg ? 'active' : 'partial'}">
       <div class="conn-icon">💼</div>
       <div>
-        <div class="conn-info-title">INPI · Comptes annuels</div>
-        <div class="conn-info-meta">
-          <strong>data.inpi.fr</strong> · Bilans, CA, résultat net, marge, capitaux propres<br>
-          ⏳ Compte créé · En attente de validation INPI (24-72h)<br>
-          💰 <strong>100% gratuit</strong> · Couvre ~55% des PME françaises
-        </div>
+        <div class="conn-info-title">INPI · RNE & Comptes annuels</div>
+        <div class="conn-info-meta">${inpiMeta}</div>
+        ${!cfg ? `<div id="inpiConfigForm" style="margin-top:8px;display:flex;flex-direction:column;gap:6px;max-width:340px;">
+          <input id="inpiUser" type="text" placeholder="Utilisateur data.inpi.fr" class="form-control form-control-sm" value="${escapeHtml(STATE.inpiUser||'')}">
+          <input id="inpiPass" type="password" placeholder="Mot de passe" class="form-control form-control-sm" value="${escapeHtml(STATE.inpiPass||'')}">
+          <button class="btn btn-sm" style="background:#7B3FA0;color:white;border-color:#7B3FA0;width:fit-content;" onclick="saveInpiConfig(document.getElementById('inpiUser').value,document.getElementById('inpiPass').value)">Connecter INPI</button>
+        </div>` : ''}
       </div>
-      <div class="conn-actions">
-        <span class="conn-status partial">🟡 En attente</span>
-        <button class="btn btn-ghost btn-sm" onclick="openConnInpi()">Configurer</button>
-      </div>
+      <div class="conn-actions">${inpiStatus}</div>
     </div>
 
     <div class="conn-card premium">
@@ -11950,19 +12565,25 @@ function renderConnFinance() {
 
 function renderConnSignals() {
   document.getElementById('connSignalsList').innerHTML = `
-    <div class="conn-card coming">
+    <div class="conn-card ${ftConfigured() ? 'active' : 'partial'}">
       <div class="conn-icon">📈</div>
       <div>
         <div class="conn-info-title">France Travail · Offres d'emploi</div>
         <div class="conn-info-meta">
           <strong>api.francetravail.io</strong> · Entreprises qui recrutent actuellement<br>
-          Signal commercial : <strong>recrutement actif = croissance</strong><br>
-          💰 Gratuit (clé API requise)
+          Signal : <strong>recrutement actif = croissance forte</strong><br>
+          💰 Gratuit · Compte développeur francetravail.io requis
+          ${ftConfigured() ? '' : '<br><span style="color:var(--warning);">⚠️ Non configuré — renseigne Client ID + Secret ci-dessous</span>'}
         </div>
+        ${!ftConfigured() ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+          <input id="ftIdInput" type="text" placeholder="Client ID" style="flex:1;min-width:120px;padding:5px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:12px;background:var(--surface-0);">
+          <input id="ftSecretInput" type="password" placeholder="Client Secret" style="flex:1;min-width:140px;padding:5px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:12px;background:var(--surface-0);">
+          <button class="btn btn-sm btn-primary" onclick="saveFtConfig(document.getElementById('ftIdInput').value,document.getElementById('ftSecretInput').value)">Enregistrer</button>
+        </div>` : `<div style="margin-top:6px;font-size:11px;color:var(--muted);">Client ID : ${(STATE.ftClientId||'').substring(0,8)}… · <button class="btn btn-ghost btn-sm" style="padding:1px 6px;font-size:11px;" onclick="STATE.ftClientId='';STATE.ftClientSecret='';saveKey('ft_client_id','');saveKey('ft_client_secret','');STATE.ftToken=null;renderConnections();toast('France Travail déconnecté')">Déconnecter</button></div>`}
       </div>
       <div class="conn-actions">
-        <span class="conn-status coming">⏳ Roadmap v8</span>
-        <button class="btn btn-ghost btn-sm" disabled>À venir</button>
+        <span class="conn-status ${ftConfigured() ? 'active' : 'partial'}">${ftConfigured() ? '🟢 Actif' : '🟡 À configurer'}</span>
+        ${ftConfigured() ? `<button class="btn btn-ghost btn-sm" onclick="testFtConn()">Tester</button>` : `<a href="https://francetravail.io/nos-api" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">Créer un compte →</a>`}
       </div>
     </div>
 
@@ -12517,6 +13138,43 @@ async function verifyCode() {
   if (!window._beetobBooted) _doBoot();   // onAuthStateChange déclenche aussi _doBoot, ceci est un filet
 }
 
+// === Nouveautés — modal "What's new" à la 1re connexion sur une nouvelle version ===
+function showWhatsNew() {
+  const SEEN_KEY = 'beetob:seen_version';
+  try { if (localStorage.getItem(SEEN_KEY) === APP_VERSION) return; } catch (e) {}
+  const news = [
+    { icon: '🔗', title: 'Connecteur INSEE', desc: 'Enrichissement automatique des fiches via SIREN : raison sociale, NAF, effectif, adresse officielle.' },
+    { icon: '🏛️', title: 'Connecteur INPI / RNE', desc: 'Dirigeants, capital, actes, comptes annuels — récupérés en un clic depuis le Registre National des Entreprises.' },
+    { icon: '⚡', title: 'Signaux faibles', desc: 'Détection automatique : création récente, déménagement, procédure collective, croissance CA — alertes sur chaque fiche.' },
+    { icon: '👤', title: 'Fiche client redessinée', desc: 'Sections segmentées, remises visibles, distinction visuelle prospect / client actif.' },
+    { icon: '💰', title: 'Remises sur la fiche', desc: 'Affichage des remises accordées directement sur la fiche client pour un suivi immédiat.' },
+  ];
+  const items = news.map(n => `
+    <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f0f0f0;">
+      <span style="font-size:1.5rem;flex:none;">${n.icon}</span>
+      <div>
+        <div style="font-weight:700;font-size:.93rem;color:#1B3A6B;margin-bottom:2px;">${n.title}</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.45;">${n.desc}</div>
+      </div>
+    </div>`).join('');
+  const modal = document.createElement('div');
+  modal.id = 'whatsNewModal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.52);display:flex;align-items:center;justify-content:center;padding:1rem;';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:18px;max-width:440px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#1B3A6B,#0078C8);padding:20px 22px 16px;color:#fff;">
+        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;opacity:.75;margin-bottom:4px;">Mise à jour v${APP_VERSION}</div>
+        <div style="font-size:1.25rem;font-weight:800;letter-spacing:-.01em;">🚀 Nouveautés BeetoB</div>
+        <div style="font-size:.82rem;opacity:.8;margin-top:4px;">FPEE · Réseau</div>
+      </div>
+      <div style="padding:4px 22px 0;">${items}</div>
+      <div style="padding:16px 22px 20px;">
+        <button onclick="document.getElementById('whatsNewModal').remove();try{localStorage.setItem('beetob:seen_version','${APP_VERSION}');}catch(e){}" style="width:100%;background:#1B3A6B;color:#fff;border:none;border-radius:10px;padding:12px;font-size:.95rem;font-weight:700;cursor:pointer;letter-spacing:-.01em;">C'est parti ✓</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
 // === Démarrage : on exige une session avant d'ouvrir l'app ===
 window._beetobBooted = false;
 async function _doBoot() {
@@ -12528,6 +13186,7 @@ async function _doBoot() {
   await init();
   injectAccountBadge();     // pastille "connecté · rôle" + déconnexion
   applyRoleUI();            // affiche l'onglet Équipe pour l'encadrement (Phase 2.2)
+  showWhatsNew();           // modal "nouveautés" à la 1re connexion sur cette version
 }
 async function bootBeetoB() {
   if (!BACKEND.useProxy) { _doBoot(); return; }     // mode test local sans backend
