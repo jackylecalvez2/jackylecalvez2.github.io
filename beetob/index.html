@@ -3730,6 +3730,328 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--sans) !important; }
 .li-msg-box { background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--radius-md);padding:12px 14px;margin-top:10px; }
 .li-msg-box textarea { width:100%;min-height:130px;border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:8px;font-family:var(--sans);font-size:13px;resize:vertical;background:var(--surface-0);color:var(--text-1);line-height:1.5; }
 </style>
+<style id="command-center-2027">
+/* ============================================================
+   COMMAND CENTER 2027 — Dashboard Premium BeetoB
+   Théo UI/UX · v4.14.3
+   ============================================================ */
+
+/* --- Nouveaux tokens 2027 --- */
+:root {
+  --electric-blue: #00B4FF;
+  --electric-glow: rgba(0,180,255,0.18);
+  --glass-bg: rgba(255,255,255,0.04);
+  --glass-border: rgba(255,255,255,0.08);
+  --glass-glow-blue: 0 0 0 1px rgba(0,120,200,0.3), 0 4px 24px rgba(0,120,200,0.12);
+  --glass-glow-gold: 0 0 0 1px rgba(245,166,35,0.25), 0 4px 24px rgba(245,166,35,0.08);
+  --text-gradient-blue: linear-gradient(135deg, #ffffff 0%, #00B4FF 100%);
+  --sidebar-bg: linear-gradient(180deg, #060C18 0%, #080E1C 60%, #0A1628 100%);
+  --sidebar-hover: rgba(0,180,255,0.07);
+  --sidebar-active: rgba(0,180,255,0.12);
+}
+
+/* --- Keyframes --- */
+@keyframes kpiShimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+@keyframes accentLineShimmer {
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+/* ===================== SIDEBAR ===================== */
+.sidebar {
+  background: var(--sidebar-bg) !important;
+  border-right: 1px solid rgba(0,180,255,0.07) !important;
+}
+
+/* Texture noise subtile via SVG inline */
+.sidebar::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E") !important;
+  background-repeat: repeat !important;
+  background-size: 160px 160px !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+.sidebar::after {
+  content: '' !important;
+  position: absolute !important;
+  bottom: -60px !important;
+  left: -40px !important;
+  width: 160px !important;
+  height: 160px !important;
+  background: radial-gradient(circle, rgba(0,120,200,0.20) 0%, transparent 65%) !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+/* Item nav actif : glow bleu électrique sur le côté */
+.nav-tab.active {
+  background: rgba(0,180,255,0.10) !important;
+  box-shadow: inset 0 0 0 1px rgba(0,180,255,0.14) !important;
+  color: white !important;
+}
+.nav-tab.active::before {
+  background: var(--electric-blue) !important;
+  box-shadow: 0 0 8px var(--electric-blue), 0 0 16px rgba(0,180,255,0.4) !important;
+  transform: translateY(-50%) scaleY(1) !important;
+}
+.nav-tab.active .icon {
+  filter: drop-shadow(0 0 5px rgba(0,180,255,0.6)) !important;
+}
+.nav-tab:hover .icon {
+  color: var(--electric-blue) !important;
+}
+/* Badge compteur avec glow accent */
+.nav-tab .count {
+  box-shadow: 0 0 10px rgba(216,139,28,0.55) !important;
+}
+
+/* ===================== HERO BANNER ===================== */
+.hero {
+  background: linear-gradient(160deg, #050D1A 0%, #0A1628 55%, #0D2144 100%) !important;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.55), 0 4px 20px rgba(0,0,0,0.35) !important;
+}
+
+/* Ligne accent lumineuse animée en haut */
+.hero::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important; left: 0 !important; right: 0 !important;
+  width: 100% !important; height: 3px !important;
+  background: linear-gradient(90deg, transparent 0%, #00B4FF 35%, #0078C8 65%, transparent 100%) !important;
+  background-size: 200% 100% !important;
+  animation: accentLineShimmer 3s ease-in-out infinite !important;
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0 !important;
+  z-index: 3 !important;
+}
+/* Retrait du glow décoratif d'origine (remplacé par le hero sombre) */
+.hero::after {
+  opacity: 0 !important;
+}
+
+/* Chiffre clé em : gradient blanc→cyan électrique */
+.hero-title em {
+  font-style: normal !important;
+  background: linear-gradient(135deg, #ffffff 0%, #00B4FF 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+/* Sous-titre en monospace, style terminal */
+.hero-greeting {
+  font-family: var(--mono) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.14em !important;
+  color: rgba(0,180,255,0.80) !important;
+  text-transform: uppercase !important;
+  opacity: 1 !important;
+}
+
+/* CTA secondaire : glassmorphism + border glow */
+.hero-cta-secondary {
+  background: rgba(0,180,255,0.08) !important;
+  border-color: rgba(0,180,255,0.22) !important;
+}
+.hero-cta-secondary:hover {
+  background: rgba(0,180,255,0.15) !important;
+  border-color: rgba(0,180,255,0.42) !important;
+  box-shadow: 0 0 18px rgba(0,180,255,0.15) !important;
+}
+
+/* ===================== KPI CARDS ===================== */
+
+/* Shimmer de chargement en arrière-plan de carte */
+.kpi-card {
+  border: 1px solid rgba(0,120,200,0.12) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.kpi-card:hover {
+  border-color: rgba(0,120,200,0.30) !important;
+  box-shadow: var(--glass-glow-blue) !important;
+  transform: translateY(-3px) !important;
+}
+
+/* Shimmer animé sur chaque carte */
+.kpi-card::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background: linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.04) 50%, rgba(255,255,255,0) 100%) !important;
+  background-size: 300% 100% !important;
+  animation: kpiShimmer 3s ease-in-out infinite !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+/* Icon flottante conserve sa position derrière le shimmer */
+.kpi-icon { z-index: 1; position: relative; }
+.kpi-label, .kpi-value, .kpi-sub, .kpi-delta, .kpi-progress { position: relative; z-index: 1; }
+
+/* .kpi-card.gold : glow doré */
+.kpi-card.gold {
+  border: 1px solid rgba(245,166,35,0.22) !important;
+}
+.kpi-card.gold:hover {
+  box-shadow: var(--glass-glow-gold) !important;
+  border-color: rgba(245,166,35,0.40) !important;
+}
+
+/* .kpi-card.accent : glow bleu */
+.kpi-card.accent {
+  border: 1px solid rgba(0,120,200,0.25) !important;
+}
+.kpi-card.accent:hover {
+  box-shadow: var(--glass-glow-blue), 0 0 30px rgba(0,180,255,0.08) !important;
+  border-color: rgba(0,180,255,0.45) !important;
+}
+
+/* --- Variante dark mode : vrai glassmorphism --- */
+[data-theme="dark"] .kpi-card {
+  background: rgba(255,255,255,0.04) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+}
+[data-theme="dark"] .kpi-card.gold {
+  background: rgba(245,166,35,0.08) !important;
+  border-color: rgba(245,166,35,0.18) !important;
+}
+[data-theme="dark"] .kpi-card.gold .kpi-value {
+  background: linear-gradient(135deg, #ffffff 0%, #E9B65A 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+[data-theme="dark"] .kpi-card.gold .kpi-label { color: rgba(255,255,255,0.6) !important; }
+[data-theme="dark"] .kpi-card.gold .kpi-sub { color: rgba(255,255,255,0.5) !important; }
+[data-theme="dark"] .kpi-card.gold .kpi-delta.up {
+  background: rgba(245,166,35,0.15) !important;
+  color: #E9B65A !important;
+}
+[data-theme="dark"] .kpi-card.accent {
+  background: rgba(0,120,200,0.12) !important;
+  border-color: rgba(0,120,200,0.25) !important;
+}
+[data-theme="dark"] .kpi-card.accent .kpi-value {
+  background: linear-gradient(135deg, #ffffff 0%, #00B4FF 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+[data-theme="dark"] .kpi-card.accent .kpi-label,
+[data-theme="dark"] .kpi-card.accent .kpi-sub { color: rgba(255,255,255,0.6) !important; }
+[data-theme="dark"] .kpi-card.accent .kpi-delta.up {
+  background: rgba(0,180,255,0.15) !important;
+  color: #00B4FF !important;
+}
+
+/* ===================== PIPELINE COMMERCIAL ===================== */
+.pipe-col {
+  border-radius: 10px !important;
+  border: 1px solid rgba(0,120,200,0.12) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.pipe-col:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 24px rgba(0,120,200,0.20), 0 0 0 1px rgba(0,180,255,0.18) !important;
+  border-color: rgba(0,180,255,0.22) !important;
+}
+.pipe-num {
+  background: linear-gradient(135deg, var(--beetob-blue-dark) 0%, var(--electric-blue) 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+[data-theme="dark"] .pipe-col {
+  background: rgba(255,255,255,0.03) !important;
+  border-color: rgba(255,255,255,0.07) !important;
+}
+[data-theme="dark"] .pipe-col:hover {
+  border-color: rgba(0,180,255,0.22) !important;
+}
+[data-theme="dark"] .pipe-num {
+  background: linear-gradient(135deg, #ffffff 0%, #00B4FF 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+/* ===================== FUNNEL / SECTION CARDS ===================== */
+.funnel-section {
+  border: 1px solid rgba(0,120,200,0.10) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.funnel-section:hover {
+  border-color: rgba(0,120,200,0.22) !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12) !important;
+}
+.widget-card {
+  border: 1px solid rgba(0,120,200,0.10) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.widget-card:hover {
+  border-color: rgba(0,120,200,0.22) !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.10) !important;
+}
+.funnel-step {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.funnel-step-count {
+  background: linear-gradient(135deg, var(--beetob-blue-dark) 0%, var(--beetob-blue-light) 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+[data-theme="dark"] .funnel-section,
+[data-theme="dark"] .widget-card {
+  background: rgba(255,255,255,0.03) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+[data-theme="dark"] .funnel-step {
+  background: rgba(255,255,255,0.03) !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+}
+[data-theme="dark"] .funnel-step-count {
+  background: linear-gradient(135deg, #ffffff 0%, #4DA3E0 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+/* ===================== STAT CARDS ===================== */
+.stat {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+[data-theme="dark"] .stat {
+  background: rgba(255,255,255,0.025) !important;
+  border-right: 1px solid rgba(255,255,255,0.07) !important;
+}
+
+/* ===================== SCROLLBAR FINE ===================== */
+::-webkit-scrollbar {
+  width: 4px !important;
+  height: 4px !important;
+}
+::-webkit-scrollbar-track { background: transparent !important; }
+::-webkit-scrollbar-thumb {
+  background: rgba(0,120,200,0.35) !important;
+  border: none !important;
+  border-radius: 9999px !important;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(0,180,255,0.60) !important; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(0,180,255,0.30) !important;
+  border: none !important;
+}
+</style>
 </head>
 <body>
 
@@ -4923,7 +5245,7 @@ window.addEventListener('unhandledrejection', function(e) {
 
 const USER = { prenom: 'Jacky', nom: '', titre: 'Direction Commerciale' };
 
-const APP_VERSION = '4.14.2';
+const APP_VERSION = '4.14.3';
 
 const ANTHROPIC_MODEL = 'claude-sonnet-4-5';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
@@ -13745,11 +14067,11 @@ function showWhatsNew() {
   const SEEN_KEY = 'beetob:seen_version';
   try { if (localStorage.getItem(SEEN_KEY) === APP_VERSION) return; } catch (e) {}
   const news = [
+    { icon: '✨', title: 'Dashboard Premium 2027', desc: 'Interface Command Center : glassmorphism, glow électrique, KPI animées — design haut de gamme.' },
     { icon: '🔗', title: 'Connecteur INSEE', desc: 'Enrichissement automatique des fiches via SIREN : raison sociale, NAF, effectif, adresse officielle.' },
     { icon: '🏛️', title: 'Connecteur INPI / RNE', desc: 'Dirigeants, capital, actes, comptes annuels — récupérés en un clic depuis le Registre National des Entreprises.' },
     { icon: '⚡', title: 'Signaux faibles', desc: 'Détection automatique : création récente, déménagement, procédure collective, croissance CA — alertes sur chaque fiche.' },
     { icon: '👤', title: 'Fiche client redessinée', desc: 'Sections segmentées, remises visibles, distinction visuelle prospect / client actif.' },
-    { icon: '💰', title: 'Remises sur la fiche', desc: 'Affichage des remises accordées directement sur la fiche client pour un suivi immédiat.' },
     { icon: '🚨', title: 'Score ajusté BODACC', desc: 'Le score affiché tient maintenant compte des procédures collectives et alertes BODACC — un prospect en liquidation ne peut plus afficher 79/100.' },
   ];
   const items = news.map(n => `
