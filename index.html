@@ -254,6 +254,10 @@ body {
   0%, 100% { box-shadow: 0 0 0 0 rgba(216,139,28,0.5); }
   50% { box-shadow: 0 0 0 8px rgba(216,139,28,0); }
 }
+@keyframes bodaccPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220,53,69,0.6); }
+  50% { box-shadow: 0 0 0 6px rgba(220,53,69,0); }
+}
 @keyframes spin-slow {
   to { transform: rotate(360deg); }
 }
@@ -7929,7 +7933,7 @@ function renderProspectsCards() {
           ${selectCheckbox(p.id)}
           <div class="pcard-avatar ${score >= 65 ? 'gold' : ''}" style="${_cli ? 'background:#1a7a40!important;' : ''}">${getInitials(p.enseigne)}</div>
           <div style="min-width:0;">
-            <div class="pcard-name">${escapeHtml(p.enseigne || 'Sans nom')}${_cli ? ' <span style="font-size:10px;font-weight:800;background:#1a7a40;color:#fff;padding:2px 7px;border-radius:100px;vertical-align:middle;">✅ CLIENT</span>' : ''}</div>
+            <div class="pcard-name">${escapeHtml(p.enseigne || 'Sans nom')}${_cli ? ' <span style="font-size:10px;font-weight:800;background:#1a7a40;color:#fff;padding:2px 7px;border-radius:100px;vertical-align:middle;">✅ CLIENT</span>' : ''}${(() => { const ba = getBodaccAlert(p); return ba ? ` <span title="${escapeHtml(ba.label + (ba.date ? ' — ' + new Date(ba.date).toLocaleDateString('fr-FR') : ''))}" style="font-size:10px;font-weight:800;background:#DC3545;color:#fff;padding:2px 8px;border-radius:100px;vertical-align:middle;animation:bodaccPulse 2s infinite;">🚨 ${ba.severity === 'critical' ? 'PROCÉDURE' : 'ALERTE'}</span>` : ''; })()}</div>
             ${p.fournisseur ? `<div class="pcard-sub">${escapeHtml(p.fournisseur)}</div>` : ''}
             ${typoLabel ? `<span class="pcard-typo">${escapeHtml(typoLabel)}</span>` : ''}
           </div>
@@ -7965,6 +7969,15 @@ function stadeLabel(s) {
   return { froid:'Froid', contacte:'Contacté', repondu:'A répondu', rdv:'RDV pris', devis:'Devis envoyé', signe:'Signé ✅', perdu:'Perdu', pause:'En pause' }[s] || s;
 }
 function isClient(p) { return p && p.stade === 'signe'; }
+
+// Retourne la procédure collective la plus grave si présente dans les données BODACC stockées
+function getBodaccAlert(p) {
+  if (!p || !p.bodaccData || !Array.isArray(p.bodaccData.annonces)) return null;
+  const crit = p.bodaccData.annonces.find(a => a.severity === 'critical');
+  if (crit) return crit;
+  const high = p.bodaccData.annonces.find(a => a.severity === 'high');
+  return high || null;
+}
 
 // Colonnes de remise tirées de la grille ProDevis/ELCIA
 const REMISES_COLS = [
@@ -11334,6 +11347,25 @@ async function runInseeCheck() {
     if (dirigeantChange) alerts.push('🔄 Dirigeant différent du contact enregistré');
     if (alerts.length) toast(alerts.join(' · '), 'warning');
     else toast('✓ INSEE mis à jour', 'success');
+
+    // Auto-vérification BODACC silencieuse si pas encore fait
+    if (!p.bodaccData) {
+      try {
+        const annonces = await fetchBodaccAnnonces(p.siren);
+        p.bodaccData = {
+          date: new Date().toISOString(), count: annonces.length,
+          annonces: annonces.map(a => { const c = classifyBodaccAnnonce(a); return { date: a.dateparution, kind: c.kind, severity: c.severity, label: c.label, famille: a.familleavis_lib || a.familleavis, type: a.typeavis_lib || a.typeavis, ville: a.ville, tribunal: a.tribunal }; })
+        };
+        saveProspects();
+        const ba = getBodaccAlert(p);
+        if (ba && ba.severity === 'critical') {
+          toast(`🚨 BODACC — Procédure collective détectée pour ${p.enseigne}. Stopper la prospection.`, 'danger');
+          if (typeof renderProspects === 'function') renderProspects();
+        } else if (ba) {
+          toast(`⚠️ BODACC — ${ba.label} détecté pour ${p.enseigne}`, 'warning');
+        }
+      } catch(e) { /* silencieux */ }
+    }
 
   } catch(e) {
     box.innerHTML = `<div class="alert danger">Erreur INSEE : ${escapeHtml(e.message)}</div>`;
