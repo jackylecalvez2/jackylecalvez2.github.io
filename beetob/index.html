@@ -4923,7 +4923,7 @@ window.addEventListener('unhandledrejection', function(e) {
 
 const USER = { prenom: 'Jacky', nom: '', titre: 'Direction Commerciale' };
 
-const APP_VERSION = '4.14.1';
+const APP_VERSION = '4.14.2';
 
 const ANTHROPIC_MODEL = 'claude-sonnet-4-5';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
@@ -5557,7 +5557,7 @@ let STATE = {
 // fichier, contrairement à window.storage qui n'existe qu'en aperçu d'artefact.
 // - Les clés de configuration IA sont GLOBALES (configurées une seule fois).
 // - Les données métier sont isolées PAR PROFIL.
-const BEETOB_GLOBAL_KEYS = new Set(['api_key', 'claude_model', 'ai_engine', 'gemini_key', 'gemini_model', 'lm_studio_url', 'lm_studio_model', 'ai_config', 'copilot_token', 'copilot_endpoint', 'copilot_client_id', 'copilot_tenant_id', 'copilot_msal_url', 'ft_client_id', 'ft_client_secret', 'inpi_user', 'inpi_pass', 'pappers_token']);
+const BEETOB_GLOBAL_KEYS = new Set(['api_key', 'claude_model', 'ai_engine', 'gemini_key', 'gemini_model', 'lm_studio_url', 'lm_studio_model', 'ai_config', 'copilot_token', 'copilot_endpoint', 'copilot_client_id', 'copilot_tenant_id', 'copilot_msal_url', 'ft_client_id', 'ft_client_secret', 'inpi_user', 'inpi_pass', 'pappers_token', 'pappers_premium']);
 // ============================================================
 // STOCKAGE IndexedDB (v4.10.0) — magasin primaire des données (capacité large,
 // fini le quota ~5 Mo de localStorage et l'échec d'écriture silencieux).
@@ -6960,6 +6960,7 @@ async function init() {
   STATE.inpiPass = await loadKey('inpi_pass', '');
   STATE.inpiToken = null; STATE.inpiTokenExp = 0;
   STATE.pappersToken = await loadKey('pappers_token', '');
+  STATE.pappersPremium = (await loadKey('pappers_premium', '')) === '1';
   // Si LM Studio configuré, on tente une reconnexion silencieuse au démarrage
   if (STATE.aiEngine === 'lmstudio' && STATE.lmStudioModel) {
     testLMStudio().catch(() => {}); // silent
@@ -11618,10 +11619,16 @@ async function fetchPappers(siren) {
   const token = (STATE.pappersToken || '').trim();
   let url = `https://api.pappers.fr/v2/entreprise?siren=${encodeURIComponent(siren)}`;
   if (token) url += `&api_token=${encodeURIComponent(token)}`;
+  if (token && STATE.pappersPremium) {
+    // Champs réservés au plan Premium Pappers
+    url += `&champs=beneficiaires_effectifs,score_financier,finances,representants,actes,conventions_collectives`;
+  }
   const r = await fetch(url);
   if (r.status === 401 || r.status === 403) throw new Error('Token Pappers invalide ou quota dépassé');
   if (!r.ok) throw new Error(`Pappers ${r.status}`);
-  return r.json();
+  const data = await r.json();
+  data._premium = !!(token && STATE.pappersPremium);
+  return data;
 }
 
 function renderPappersCard(data) {
@@ -11663,6 +11670,9 @@ function renderPappersCard(data) {
   const resultat = finRow ? (finRow.resultat || null) : null;
   const effectif = data.tranche_effectif || data.effectif || null;
 
+  // Historique CA (premium : plusieurs années)
+  const caHistory = finances.filter(f => f.chiffre_affaires || f.ca).slice(0, 4);
+
   const finHtml = finRow
     ? `<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;font-size:12px;">
         ${ca !== null ? `<div><span style="color:var(--muted);">CA</span> <strong>${(ca/1000).toFixed(0)} k€</strong></div>` : ''}
@@ -11671,11 +11681,55 @@ function renderPappersCard(data) {
       </div>`
     : '';
 
+  // Historique CA multi-années (premium)
+  const caHistHtml = caHistory.length > 1
+    ? `<div style="margin-top:6px;font-size:11px;">
+        <span style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;">Évolution CA</span>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:3px;">
+          ${caHistory.map(f => {
+            const v = f.chiffre_affaires || f.ca;
+            return `<span style="background:var(--surface-0);border:1px solid var(--border-1);border-radius:6px;padding:2px 8px;font-weight:600;">${f.annee || '?'} · ${(v/1000).toFixed(0)} k€</span>`;
+          }).join('')}
+        </div>
+      </div>`
+    : '';
+
+  // Bénéficiaires effectifs (premium)
+  const beneficiaires = data.beneficiaires_effectifs || data.beneficiaires || [];
+  const benHtml = beneficiaires.length
+    ? `<div style="font-size:12px;font-weight:600;margin:8px 0 4px;color:var(--muted);">BÉNÉFICIAIRES EFFECTIFS <span style="font-size:9px;background:#E65C00;color:#fff;padding:1px 5px;border-radius:4px;vertical-align:middle;">PREMIUM</span></div>
+       <table style="width:100%;font-size:12px;border-collapse:collapse;">
+         <thead><tr><th style="text-align:left;padding:2px 6px;color:var(--muted);">Nom</th><th style="text-align:left;padding:2px 6px;color:var(--muted);">% Capital</th><th style="text-align:left;padding:2px 6px;color:var(--muted);">Nationalité</th></tr></thead>
+         <tbody>${beneficiaires.slice(0,5).map(b => {
+           const nom_b = [b.nom, b.prenom].filter(Boolean).join(' ') || b.denomination || '—';
+           const pct = b.pourcentage_parts !== undefined ? `${b.pourcentage_parts}%` : (b.pourcentage_votes !== undefined ? `${b.pourcentage_votes}% votes` : '—');
+           const nat = b.nationalite || '—';
+           return `<tr><td style="padding:2px 6px;font-weight:600;">${escapeHtml(nom_b)}</td><td style="padding:2px 6px;">${escapeHtml(pct)}</td><td style="padding:2px 6px;color:var(--muted);">${escapeHtml(nat)}</td></tr>`;
+         }).join('')}</tbody>
+       </table>`
+    : (data._premium ? '<div style="font-size:11px;color:var(--muted);margin-top:4px;">Aucun bénéficiaire effectif déclaré</div>' : '');
+
+  // Score financier BDF (premium)
+  const scoreBDF = data.score_financier || null;
+  const scoreBDFHtml = scoreBDF !== null
+    ? `<div style="margin-top:6px;">
+        <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Score financier BDF <span style="font-size:9px;background:#E65C00;color:#fff;padding:1px 5px;border-radius:4px;vertical-align:middle;">PREMIUM</span></span>
+        <div style="margin-top:4px;">
+          ${scoreBDF < 40
+            ? `<span style="background:#DC3545;color:#fff;padding:3px 10px;border-radius:100px;font-size:12px;font-weight:700;">🔴 ${scoreBDF}/100 — Risque élevé</span>`
+            : scoreBDF < 65
+              ? `<span style="background:#E67E22;color:#fff;padding:3px 10px;border-radius:100px;font-size:12px;font-weight:700;">🟠 ${scoreBDF}/100 — Risque modéré</span>`
+              : `<span style="background:#27AE60;color:#fff;padding:3px 10px;border-radius:100px;font-size:12px;font-weight:700;">🟢 ${scoreBDF}/100 — Faible risque</span>`}
+        </div>
+      </div>`
+    : '';
+
   return `<div style="background:var(--surface-2);border:1px solid var(--border-1);border-radius:var(--radius);padding:14px;margin-top:4px;">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
       <strong style="font-size:14px;">📊 ${escapeHtml(nom)}</strong>
       ${etatBadge}
       ${scoreBadge}
+      ${data._premium ? '<span style="font-size:10px;background:linear-gradient(90deg,#E65C00,#f4a261);color:#fff;padding:2px 7px;border-radius:100px;font-weight:700;">★ Premium</span>' : ''}
       <span style="font-size:10px;color:var(--muted);">Pappers · ${data.date ? new Date(data.date).toLocaleDateString('fr-FR') : '—'}</span>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:12px;margin-bottom:8px;">
@@ -11685,8 +11739,11 @@ function renderPappersCard(data) {
       ${categorieJuridique ? `<div><span style="color:var(--muted);">Catégorie</span> ${escapeHtml(categorieJuridique)}</div>` : ''}
     </div>
     ${finHtml}
+    ${caHistHtml}
+    ${scoreBDFHtml}
     <div style="font-size:12px;font-weight:600;margin:8px 0 4px;color:var(--muted);">DIRIGEANTS</div>
     ${dirsHtml}
+    ${benHtml}
     <div style="margin-top:10px;font-size:11px;">
       <a href="https://www.pappers.fr/entreprise/${escapeAttr(siren)}" target="_blank" style="color:var(--link);">↗ Fiche complète pappers.fr</a>
     </div>
@@ -13074,23 +13131,35 @@ function renderConnFinance() {
       <div class="conn-actions">${inpiStatus}</div>
     </div>
 
-    <div class="conn-card ${pappersConfigured() ? 'active' : 'partial'}">
+    <div class="conn-card ${STATE.pappersPremium ? 'premium' : pappersConfigured() ? 'active' : 'partial'}">
       <div class="conn-icon">📊</div>
-      <div>
-        <div class="conn-info-title">Pappers · Enrichissement SIREN</div>
+      <div style="flex:1;">
+        <div class="conn-info-title">Pappers · Enrichissement SIREN${STATE.pappersPremium ? ' <span style="font-size:10px;background:linear-gradient(90deg,#E65C00,#f4a261);color:#fff;padding:1px 7px;border-radius:100px;vertical-align:middle;">★ Premium</span>' : ''}</div>
         <div class="conn-info-meta">
           <strong>api.pappers.fr</strong> · Dirigeants, CA, score risque, forme juridique<br>
-          💰 <strong>Gratuit</strong> jusqu'à 100 req/j sans token · Token optionnel pour quota élevé<br>
-          ${pappersConfigured() ? 'Token configuré — quota étendu actif' : 'Fonctionne sans token · <a href="https://www.pappers.fr/api" target="_blank" style="color:var(--link);">Token gratuit sur pappers.fr</a> pour lever la limite'}
+          💰 <strong>Gratuit</strong> jusqu'à 100 req/j sans token · Token pour quota étendu · Abonnement Premium pour données avancées<br>
+          ${STATE.pappersPremium
+            ? '★ <strong>Mode Premium actif</strong> — Score BDF, bénéficiaires effectifs, historique CA complet'
+            : pappersConfigured()
+              ? 'Token configuré — quota étendu actif'
+              : 'Fonctionne sans token · <a href="https://www.pappers.fr/api" target="_blank" style="color:var(--link);">Token gratuit sur pappers.fr</a> pour lever la limite'}
         </div>
         <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-          <input id="pappersTokenInput" type="password" placeholder="Token Pappers (optionnel)" style="flex:1;min-width:180px;padding:5px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:12px;background:var(--surface-0);" value="${escapeHtml(STATE.pappersToken||'')}">
+          <input id="pappersTokenInput" type="password" placeholder="Token Pappers (optionnel)" style="flex:1;min-width:160px;padding:5px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:12px;background:var(--surface-0);" value="${escapeHtml(STATE.pappersToken||'')}">
           <button class="btn btn-sm" style="background:#E65C00;color:white;border-color:#E65C00;white-space:nowrap;" onclick="savePappersConfig(document.getElementById('pappersTokenInput').value)">${pappersConfigured() ? 'Mettre à jour' : 'Enregistrer'}</button>
-          ${pappersConfigured() ? `<button class="btn btn-ghost btn-sm" onclick="STATE.pappersToken='';saveKey('pappers_token','');renderConnections();toast('Pappers déconnecté')">Effacer</button>` : ''}
+          ${pappersConfigured() ? `<button class="btn btn-ghost btn-sm" onclick="STATE.pappersToken='';STATE.pappersPremium=false;Promise.all([saveKey('pappers_token',''),saveKey('pappers_premium','')]).then(()=>renderConnections());toast('Pappers déconnecté')">Effacer</button>` : ''}
         </div>
+        ${pappersConfigured() ? `
+        <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer;font-size:13px;user-select:none;">
+          <input type="checkbox" id="pappersPremiumToggle" ${STATE.pappersPremium ? 'checked' : ''}
+            onchange="STATE.pappersPremium=this.checked;saveKey('pappers_premium',this.checked?'1':'').then(()=>renderConnections());toast(this.checked?'★ Mode Premium Pappers activé':'Mode standard Pappers',this.checked?'success':'info')"
+            style="width:16px;height:16px;accent-color:#E65C00;cursor:pointer;">
+          <span>Abonnement <strong>Premium Pappers</strong> — score BDF, bénéficiaires effectifs, historique financier</span>
+          <a href="https://www.pappers.fr/api" target="_blank" style="font-size:11px;color:var(--link);">Voir les offres</a>
+        </label>` : ''}
       </div>
       <div class="conn-actions">
-        <span class="conn-status ${pappersConfigured() ? 'active' : 'partial'}">${pappersConfigured() ? '🟢 Token actif' : '🟡 Sans token (100 req/j)'}</span>
+        <span class="conn-status ${STATE.pappersPremium ? 'premium' : pappersConfigured() ? 'active' : 'partial'}">${STATE.pappersPremium ? '★ Premium' : pappersConfigured() ? '🟢 Token actif' : '🟡 Sans token (100 req/j)'}</span>
       </div>
     </div>
   `;
