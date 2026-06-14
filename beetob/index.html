@@ -5245,7 +5245,7 @@ window.addEventListener('unhandledrejection', function(e) {
 
 const USER = { prenom: 'Jacky', nom: '', titre: 'Direction Commerciale' };
 
-const APP_VERSION = '4.14.3';
+const APP_VERSION = '4.15.0';
 
 const ANTHROPIC_MODEL = 'claude-sonnet-4-5';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
@@ -14067,6 +14067,7 @@ function showWhatsNew() {
   const SEEN_KEY = 'beetob:seen_version';
   try { if (localStorage.getItem(SEEN_KEY) === APP_VERSION) return; } catch (e) {}
   const news = [
+    { icon: '🐝', title: 'Thème Ruche', desc: 'Nouvelle identité abeille & nid d’abeilles : accents miel, hexagones, écran d’accueil signé — BeetoB prend ses couleurs.' },
     { icon: '✨', title: 'Dashboard Premium 2027', desc: 'Interface Command Center : glassmorphism, glow électrique, KPI animées — design haut de gamme.' },
     { icon: '🔗', title: 'Connecteur INSEE', desc: 'Enrichissement automatique des fiches via SIREN : raison sociale, NAF, effectif, adresse officielle.' },
     { icon: '🏛️', title: 'Connecteur INPI / RNE', desc: 'Dirigeants, capital, actes, comptes annuels — récupérés en un clic depuis le Registre National des Entreprises.' },
