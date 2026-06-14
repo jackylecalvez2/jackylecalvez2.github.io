@@ -3714,6 +3714,17 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--sans) !important; }
     .main-content{padding-bottom:calc(74px + env(safe-area-inset-bottom,0px)) !important;}
     #beetobAccount{bottom:calc(82px + env(safe-area-inset-bottom,0px)) !important; left:8px !important; right:8px; justify-content:center;}
   }
+/* === CONTACTABILITÉ & LINKEDIN (v4.12) === */
+.contact-score-badge { display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:var(--radius-full);white-space:nowrap;letter-spacing:.3px; }
+.contact-score-badge.high { background:rgba(27,158,122,.12);color:var(--success); }
+.contact-score-badge.medium { background:rgba(0,120,200,.10);color:var(--beetob-blue); }
+.contact-score-badge.low { background:rgba(156,163,175,.12);color:var(--text-3); }
+.li-state-btn { display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;padding:4px 10px;border-radius:var(--radius-full);border:1.5px solid var(--border-2);cursor:pointer;white-space:nowrap;transition:all var(--t-fast);background:none;font-family:var(--sans);color:var(--text-2); }
+.li-state-btn.active { background:var(--linkedin);border-color:var(--linkedin);color:#fff; }
+.li-state-btn:hover { border-color:var(--linkedin);color:var(--linkedin); }
+.li-state-btn.active:hover { opacity:.9;color:#fff; }
+.li-msg-box { background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--radius-md);padding:12px 14px;margin-top:10px; }
+.li-msg-box textarea { width:100%;min-height:130px;border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:8px;font-family:var(--sans);font-size:13px;resize:vertical;background:var(--surface-0);color:var(--text-1);line-height:1.5; }
 </style>
 </head>
 <body>
@@ -3871,7 +3882,7 @@ window.addEventListener('unhandledrejection', function(e) {
       </div>
       <div class="sidebar-brand-text">
         <strong>BeetoB</strong>
-        <small>FPEE · Réseau · v4.10.1</small>
+        <small>FPEE · Réseau · v4.12.0</small>
       </div>
     </div>
 
@@ -4352,6 +4363,9 @@ window.addEventListener('unhandledrejection', function(e) {
       <option value="perdu">Perdu</option>
       <option value="pause">En pause</option>
     </select>
+    <select id="filterFournisseur" title="Filtrer par fournisseur / réseau concurrent">
+      <option value="">Tous fournisseurs / réseaux</option>
+    </select>
     <select id="filterCommercial" style="display:none" title="Filtrer par commercial">
       <option value="">Tous les commerciaux</option>
     </select>
@@ -4368,6 +4382,7 @@ window.addEventListener('unhandledrejection', function(e) {
     <table>
       <thead>
         <tr>
+          <th style="width:32px;"></th>
           <th>Enseigne</th>
           <th>Dirigeant</th>
           <th>Ville</th>
@@ -4377,7 +4392,7 @@ window.addEventListener('unhandledrejection', function(e) {
         </tr>
       </thead>
       <tbody id="prospectsTable">
-        <tr><td colspan="6" class="empty-state"><strong>Aucun prospect</strong>Onglet "Données" pour importer un CSV.</td></tr>
+        <tr><td colspan="7" class="empty-state"><strong>Aucun prospect</strong>Onglet "Données" pour importer un CSV.</td></tr>
       </tbody>
     </table>
   </div>
@@ -5405,19 +5420,54 @@ const METZ_DEMO_PROSPECTS = [
 ];
 
 
+// Coordonnées des communes de la base démo (Moselle / agglo Metz-Thionville)
+// → la carte fonctionne immédiatement, sans étape de géocodage.
+const METZ_DEMO_COORDS = {
+  'Ars-sur-Moselle': [49.0814, 6.0772], 'Augny': [49.0589, 6.1289],
+  'Faulquemont': [49.0481, 6.5969], 'Ham-sous-Varsberg': [49.1622, 6.6928],
+  'Jouy-aux-Arches': [49.0436, 6.0858], 'Longeville-lès-Saint-Avold': [49.0961, 6.6592],
+  'Maizières-lès-Metz': [49.2153, 6.1556], 'Metz': [49.1193, 6.1757],
+  'Petite-Rosselle': [49.2192, 6.8514], 'Phalsbourg': [48.7686, 7.2606],
+  'Sainte-Marie-aux-Chênes': [49.1736, 5.9786], 'Spicheren': [49.1958, 6.9008],
+  'Thionville': [49.3578, 6.1689], 'Yutz': [49.3567, 6.1908]
+};
+// Devis / RDV de démo pour illustrer la Prépa-RDV (clé = email du prospect)
+const METZ_DEMO_EXTRAS = {
+  'menuiserie@denarda.com': {
+    stade: 'devis',
+    nextAction: { text: 'RDV showroom — présenter gamme alu Art & Fenêtres', date: isoDate(dateAdd(today(), 2)) },
+    montant: 18500,
+    devis: [
+      { id: 'dv1', ref: 'DEV-2026-014', montant: 18500, remise: 8, statut: 'envoye', date: isoDate(dateAdd(today(), -6)), note: '6 fenêtres alu + 1 baie coulissante' },
+      { id: 'dv2', ref: 'DEV-2026-021', montant: 4200, remise: 0, statut: 'a_faire', date: isoDate(today()), note: 'Volet roulant solaire (à chiffrer)' }
+    ]
+  },
+  'contact@idealfermeture.fr': {
+    stade: 'rdv',
+    nextAction: { text: 'Rappeler M. Gruszczynski avant 12h', date: isoDate(today()) },
+    montant: 9800,
+    devis: [
+      { id: 'dv3', ref: 'DEV-2026-018', montant: 9800, remise: 12, statut: 'relance', date: isoDate(dateAdd(today(), -11)), note: 'Porte d\'entrée + 3 fenêtres PVC — remise réseau négociée' }
+    ]
+  }
+};
 async function loadMetzDemo() {
   let added = 0;
   for (const p of METZ_DEMO_PROSPECTS) {
     if (STATE.prospects.find(x => x.email === p.email)) continue;
+    const c = METZ_DEMO_COORDS[p.ville];
+    const extra = METZ_DEMO_EXTRAS[p.email] || {};
     STATE.prospects.push({
       id: 'demo_' + Math.random().toString(36).slice(2, 10),
       created: new Date().toISOString(),
       ...p,
+      lat: c ? c[0] : null, lng: c ? c[1] : null, geo_source: c ? 'demo' : undefined,
       linkedin_url: `https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(p.enseigne)}`,
       stade: 'froid',
       iaScored: true,
       history: [],
-      notes: []
+      notes: [],
+      ...extra
     });
     added++;
   }
@@ -5476,7 +5526,7 @@ let STATE = {
   prospects: [],
   sequenceEmail: [],
   sequenceLinkedin: [],
-  filter: { search: '', stade: '', commercialId: '' },
+  filter: { search: '', stade: '', commercialId: '', fournisseur: '' },
   currentProspect: null,
   currentActionStep: null,
   cost: { calls: 0, tokens: 0 }
@@ -6909,6 +6959,7 @@ async function init() {
 
   document.getElementById('searchInput').addEventListener('input', e => { STATE.filter.search = e.target.value.toLowerCase(); renderProspects(); });
   document.getElementById('filterStade').addEventListener('change', e => { STATE.filter.stade = e.target.value; renderProspects(); });
+  { const ff = document.getElementById('filterFournisseur'); if (ff) ff.addEventListener('change', e => { STATE.filter.fournisseur = e.target.value; renderProspects(); }); }
   { const fc = document.getElementById('filterCommercial'); if (fc) fc.addEventListener('change', e => { STATE.filter.commercialId = e.target.value; renderProspects(); if (typeof renderAffaires === 'function') renderAffaires(); if (typeof renderDashboard === 'function') renderDashboard(); if (typeof renderAgenda === 'function') renderAgenda(); if (typeof updateAgendaBadge === 'function') updateAgendaBadge(); }); }
 
   renderAll();
@@ -7480,9 +7531,133 @@ function setProspectsView(v) {
   renderProspects();
 }
 
+// Réseaux / marques concurrents connus → ciblage campagne de conquête
+const CONCURRENT_NETWORKS = ['Tryba','K-LINE','Janneau','Solabaie','Komilfo','Bel\'M','Actea','Atrya','Lorillard','Millet','Caséo','Cazes'];
+function populateFournisseurFilter() {
+  const sel = document.getElementById('filterFournisseur');
+  if (!sel) return;
+  const arr = scopedProspects();
+  // 1) réseaux concurrents détectés dans la base (ciblage conquête)
+  const nets = CONCURRENT_NETWORKS.filter(n => arr.some(p => (p.fournisseur||'').toLowerCase().includes(n.toLowerCase())));
+  // 2) valeurs brutes distinctes
+  const raw = [...new Set(arr.map(p => (p.fournisseur||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
+  const cur = STATE.filter.fournisseur || '';
+  let html = '<option value="">Tous fournisseurs / réseaux</option>';
+  if (nets.length) html += '<optgroup label="🎯 Réseaux concurrents">' + nets.map(n => `<option value="${escapeAttr(n)}">${escapeHtml(n)}</option>`).join('') + '</optgroup>';
+  if (raw.length) html += '<optgroup label="Fournisseur déclaré">' + raw.map(v => `<option value="${escapeAttr(v)}">${escapeHtml(v.length>42?v.slice(0,40)+'…':v)}</option>`).join('') + '</optgroup>';
+  sel.innerHTML = html;
+  sel.value = cur;
+}
+
 function renderProspects() {
+  populateFournisseurFilter();
   if (PROSPECTS_VIEW === 'table') renderProspectsTable();
   else renderProspectsCards();
+  renderSelectionBar();
+}
+
+// ===== MULTI-SÉLECTION → CARTE DE TOURNÉE (v4.11) =====
+let SELECTION = new Set();
+function toggleSelect(id, checked, ev) {
+  if (ev) ev.stopPropagation();
+  if (checked) SELECTION.add(id); else SELECTION.delete(id);
+  renderSelectionBar();
+}
+function selectAllVisible() {
+  getProspectRows().forEach(p => SELECTION.add(p.id));
+  renderProspects();
+}
+function clearSelection() {
+  SELECTION.clear();
+  renderProspects();
+}
+function renderSelectionBar() {
+  let bar = document.getElementById('selectionBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'selectionBar';
+    bar.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:74px;z-index:1200;background:var(--fpee-blue,#003c6e);color:#fff;border-radius:14px;padding:10px 14px;box-shadow:0 8px 28px rgba(0,0,0,.28);display:none;align-items:center;gap:10px;max-width:94vw;font-family:system-ui,sans-serif;';
+    document.body.appendChild(bar);
+  }
+  const n = SELECTION.size;
+  if (!n) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = `<strong style="font-size:14px;white-space:nowrap;">${n} sélectionné${n>1?'s':''}</strong>
+    <button onclick="startTournee()" style="background:var(--accent,#d88b1c);color:#fff;border:0;border-radius:10px;padding:8px 12px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;">🗺️ Carte de tournée</button>
+    <button onclick="clearSelection()" style="background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:10px;padding:8px 10px;font-size:13px;cursor:pointer;white-space:nowrap;">✕</button>`;
+}
+function selectCheckbox(id) {
+  const checked = SELECTION.has(id);
+  return `<label class="psel" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;cursor:pointer;">
+    <input type="checkbox" ${checked?'checked':''} onclick="toggleSelect('${id}', this.checked, event)" style="width:20px;height:20px;cursor:pointer;accent-color:var(--accent,#d88b1c);"></label>`;
+}
+
+// Construit une tournée optimisée (plus proche voisin) à partir des prospects sélectionnés
+// et l'affiche sur la carte + propose un itinéraire Google Maps.
+function _tourneeNotice(msg) {
+  if (typeof toast === 'function') toast(msg);
+  else { const s = document.getElementById('carte_status'); if (s) s.textContent = msg; else alert(msg); }
+}
+function _orderTournee(pts) {
+  // Départ = point le plus au nord, puis on enchaîne le plus proche à chaque étape.
+  const remaining = pts.slice();
+  remaining.sort((a, b) => b.lat - a.lat);
+  const route = [remaining.shift()];
+  while (remaining.length) {
+    const last = route[route.length - 1];
+    let bi = 0, bd = Infinity;
+    remaining.forEach((p, i) => {
+      const dLat = p.lat - last.lat, dLng = (p.lng - last.lng) * Math.cos(last.lat * Math.PI / 180);
+      const d = dLat * dLat + dLng * dLng;
+      if (d < bd) { bd = d; bi = i; }
+    });
+    route.push(remaining.splice(bi, 1)[0]);
+  }
+  return route;
+}
+async function startTournee() {
+  const sel = STATE.prospects.filter(p => SELECTION.has(p.id));
+  const geo = sel.filter(carte_hasCoords);
+  if (geo.length < 2) {
+    _tourneeNotice(geo.length === sel.length
+      ? '⚠️ Sélectionne au moins 2 prospects géolocalisés pour tracer une tournée.'
+      : `⚠️ ${sel.length - geo.length} prospect(s) sans coordonnées (géocode-les d'abord). Il en faut au moins 2 géolocalisés.`);
+    return;
+  }
+  switchSection('carte');
+  // renderCarte() est async (chargement Leaflet) : on attend que la map soit prête.
+  let tries = 0;
+  while ((!CARTE.map || !window.L) && tries < 80) { await new Promise(r => setTimeout(r, 80)); tries++; }
+  if (!CARTE.map) { _tourneeNotice('⚠️ Carte indisponible (Leaflet non chargé).'); return; }
+
+  const route = _orderTournee(geo);
+  if (CARTE.tournee) { CARTE.map.removeLayer(CARTE.tournee); }
+  CARTE.tournee = L.layerGroup().addTo(CARTE.map);
+  const latlngs = route.map(p => [p.lat, p.lng]);
+  L.polyline(latlngs, { color: '#d88b1c', weight: 4, opacity: 0.85, dashArray: '6,6' }).addTo(CARTE.tournee);
+  route.forEach((p, i) => {
+    L.marker([p.lat, p.lng], {
+      icon: L.divIcon({
+        className: 'tournee-pin',
+        html: `<div style="background:#003c6e;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 13px system-ui;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);">${i + 1}</div>`,
+        iconSize: [26, 26], iconAnchor: [13, 13]
+      })
+    }).bindPopup(`<strong>${i + 1}. ${escapeHtml(p.enseigne || 'Sans nom')}</strong><br><span style="color:#666;font-size:12px;">${escapeHtml([p.ville, p.cp].filter(Boolean).join(' ') || '—')}</span>`).addTo(CARTE.tournee);
+  });
+  CARTE.map.fitBounds(L.latLngBounds(latlngs).pad(0.15));
+  setTimeout(() => CARTE.map.invalidateSize(), 80);
+
+  // Lien itinéraire Google Maps (jusqu'à ~10 points = limite raisonnable de l'URL waypoints).
+  const gpts = route.slice(0, 10).map(p => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`);
+  const gmaps = 'https://www.google.com/maps/dir/' + gpts.join('/');
+  const s = document.getElementById('carte_status');
+  if (s) {
+    s.innerHTML = `🗺️ Tournée de ${route.length} étape${route.length > 1 ? 's' : ''} tracée — ` +
+      `<a href="${gmaps}" target="_blank" rel="noopener" style="color:var(--accent,#d88b1c);font-weight:700;">ouvrir l'itinéraire dans Google Maps ↗</a>` +
+      (route.length > 10 ? ` <span style="color:var(--muted);">(10 premières étapes dans le lien)</span>` : '');
+  } else {
+    window.open(gmaps, '_blank', 'noopener');
+  }
 }
 
 // Périmètre affiché : la RLS borne déjà un commercial à ses prospects.
@@ -7504,10 +7679,15 @@ function getProspectRows() {
     rows = rows.filter(p =>
       (p.enseigne||'').toLowerCase().includes(q) ||
       (p.ville||'').toLowerCase().includes(q) ||
+      (p.fournisseur||'').toLowerCase().includes(q) ||
       (p.contact_prenom||'').toLowerCase().includes(q) ||
       (p.contact_nom||'').toLowerCase().includes(q));
   }
   if (STATE.filter.stade) rows = rows.filter(p => p.stade === STATE.filter.stade);
+  if (STATE.filter.fournisseur) {
+    const f = STATE.filter.fournisseur.toLowerCase();
+    rows = rows.filter(p => (p.fournisseur||'').toLowerCase().includes(f));
+  }
   rows.sort((a,b) => {
     const aU = (isDueToday(a, 'email') || isDueToday(a, 'linkedin')) ? 1 : 0;
     const bU = (isDueToday(b, 'email') || isDueToday(b, 'linkedin')) ? 1 : 0;
@@ -7622,7 +7802,7 @@ function renderProspectsTable() {
   let rows = getProspectRows();
 
   if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-state"><strong>Aucun prospect</strong>Onglet "Données" pour importer.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-state"><strong>Aucun prospect</strong>Onglet "Données" pour importer.</td></tr>`;
     return;
   }
 
@@ -7736,6 +7916,7 @@ function renderProspectsCards() {
     return `<div class="pcard stade-${p.stade || 'froid'} ${hot ? 'hot' : ''}">
       <div class="pcard-col">
         <div class="pcard-id">
+          ${selectCheckbox(p.id)}
           <div class="pcard-avatar ${score >= 65 ? 'gold' : ''}">${getInitials(p.enseigne)}</div>
           <div style="min-width:0;">
             <div class="pcard-name">${escapeHtml(p.enseigne || 'Sans nom')}</div>
@@ -7760,6 +7941,7 @@ function renderProspectsCards() {
       <div class="pcard-col pcard-actions">
         <span class="badge badge-${p.stade} pcard-stade-pill">${stadeLabel(p.stade)}</span>
         ${contactHtml}
+        ${contactScoreBadgeHtml(p, true)}
         <button class="pcard-btn primary" onclick="openProspect('${p.id}')">Ouvrir la fiche</button>
         <select class="pcard-stade-select" onchange="setProspectStade('${p.id}', this.value)" title="Changer d'étape">${stadeOptions}</select>
         ${p.stade !== 'perdu' ? `<button class="pcard-btn ghost-danger" onclick="setProspectStade('${p.id}','perdu')">Pas intéressé</button>` : ''}
@@ -7771,6 +7953,154 @@ function renderProspectsCards() {
 
 function stadeLabel(s) {
   return { froid:'Froid', contacte:'Contacté', repondu:'A répondu', rdv:'RDV pris', devis:'Devis envoyé', signe:'Signé', perdu:'Perdu', pause:'En pause' }[s] || s;
+}
+
+// ===== CONTACTABILITÉ (v4.12) =====
+function computeContactScore(p) {
+  let score = 0;
+  const details = [];
+  if (p.linkedin_url) { score += 35; details.push({ label:'LinkedIn', pts:35, ok:true }); }
+  else { details.push({ label:'LinkedIn manquant', pts:35, ok:false }); }
+  const hasDecideur = !!(p.contact_prenom && p.contact_nom);
+  if (hasDecideur) { score += 25; details.push({ label:'Décideur nommé', pts:25, ok:true }); }
+  else { details.push({ label:'Décideur inconnu', pts:25, ok:false }); }
+  if (p.mobile) { score += 20; details.push({ label:'Mobile', pts:20, ok:true }); }
+  else { details.push({ label:'Mobile manquant', pts:20, ok:false }); }
+  const hasEmail = p.email && !/^contact-a-trouver-/.test(p.email);
+  if (hasEmail) { score += 15; details.push({ label:'Email', pts:15, ok:true }); }
+  else { details.push({ label:'Email manquant', pts:15, ok:false }); }
+  if (p.telephone) { score += 5; details.push({ label:'Fixe', pts:5, ok:true }); }
+  const level = score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low';
+  return { score, level, details };
+}
+
+function contactScoreBadgeHtml(p, compact) {
+  const cs = computeContactScore(p);
+  const icon = cs.level === 'high' ? '📶' : cs.level === 'medium' ? '📡' : '📵';
+  const label = cs.level === 'high' ? 'Joignable' : cs.level === 'medium' ? 'Partiel' : 'Difficile';
+  const channels = cs.details.filter(d => d.ok).map(d => d.label).join(', ') || 'aucun canal';
+  if (compact) {
+    return `<span class="contact-score-badge ${cs.level}" title="Joignabilité ${cs.score}/100 — ${channels}">${icon} ${label} ${cs.score}</span>`;
+  }
+  const rows = cs.details.map(d =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;padding:2px 0;">
+      <span style="${d.ok ? '' : 'opacity:.5;'}">${d.ok ? '✅' : '⬜'} ${d.label}</span>
+      <span style="font-size:10px;font-weight:700;color:${d.ok ? 'var(--success)' : 'var(--text-3)'};">+${d.pts}</span>
+    </div>`
+  ).join('');
+  return `<div style="border:1.5px solid var(--border-1);border-radius:var(--radius-md);padding:12px 14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;flex-wrap:wrap;">
+      <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-2);">📶 Joignabilité</span>
+      <span class="contact-score-badge ${cs.level}">${icon} ${label} — ${cs.score}/100</span>
+    </div>
+    ${rows}
+    ${cs.level !== 'high' ? `<div style="margin-top:8px;font-size:11px;color:var(--beetob-blue);font-style:italic;">Complète les champs manquants dans la Fiche pour améliorer le score.</div>` : ''}
+  </div>`;
+}
+
+// ===== ÉTATS CONTACT LINKEDIN (v4.12) =====
+const LI_STATES = [
+  { id:'a_contacter',    label:'🎯 À contacter' },
+  { id:'invite_envoyee', label:'📨 Invitation' },
+  { id:'connecte',       label:'🤝 Connecté' },
+  { id:'message_envoye', label:'💬 Contacté' },
+  { id:'relance',        label:'🔄 Relancé' },
+  { id:'repondu',        label:'✅ A répondu' }
+];
+
+async function setLiContactState(pid, state) {
+  const p = STATE.prospects.find(x => x.id === pid);
+  if (!p) return;
+  p.li_contact_state = state;
+  p.li_contact_date = new Date().toISOString();
+  await saveKey('prospects', STATE.prospects);
+  const box = document.getElementById('liContactPanel_' + pid);
+  if (box) box.outerHTML = renderLinkedinContactPanel(p);
+  toast('État LinkedIn : ' + (LI_STATES.find(s => s.id === state) || {}).label, 'success');
+}
+
+function generateLinkedinQuickMessage(p, state) {
+  const prenom = p.contact_prenom || '';
+  const enseigne = p.enseigne || 'votre entreprise';
+  const ville = p.ville ? ' à ' + p.ville : '';
+  const fournisseur = p.fournisseur || '';
+  const isConcurrent = fournisseur && ['Tryba','K-LINE','Janneau','Solabaie','Komilfo',"Bel'M",'Actea','Atrya','Lorillard','Millet','Caséo','Cazes'].some(c => fournisseur.toLowerCase().includes(c.toLowerCase()));
+  const concurrentNote = isConcurrent ? `Je vois que vous travaillez avec ${fournisseur} — ` : '';
+  const sig = (USER.prenom || '') + (USER.nom ? ' ' + USER.nom : '');
+  const stadeActuel = state || 'a_contacter';
+
+  if (stadeActuel === 'a_contacter' || stadeActuel === 'invite_envoyee') {
+    return `Bonjour ${prenom},\n\nJe travaille chez FPEE Industries (fabricant français de menuiseries — Art & Fenêtres et OuvertureS). ${concurrentNote}J'aimerais rester en contact avec les acteurs du secteur${ville}.\n\n${sig}`;
+  }
+  if (stadeActuel === 'connecte') {
+    return `Merci pour la connexion ${prenom} !\n\nChez FPEE Industries, on accompagne une centaine de concessionnaires en France sur les marques Art & Fenêtres et OuvertureS. Ce qui nous distingue : une gamme complète — PVC, alu, bois, composite RAU-FIPRO, portes, portails, volets — un seul fournisseur pour tout couvrir.\n\nSur votre zone, je regarde ${enseigne} avec intérêt. 20 minutes d'échange pour voir si un partenariat aurait du sens ?\n\n${sig}`;
+  }
+  if (stadeActuel === 'message_envoye') {
+    return `Bonjour ${prenom}, petite relance.\n\nNos partenaires apprécient la largeur de gamme FPEE : fenêtres PVC/alu/bois, portes d'entrée, baies coulissantes, volets, portails — une enseigne pour couvrir tous les besoins. Moins de fournisseurs, plus de marge.\n\nVous avez 15 minutes dans les prochains jours ?\n\n${sig}`;
+  }
+  if (stadeActuel === 'relance') {
+    return `Bonjour ${prenom}, je vous ai sollicité plusieurs fois sans retour — le moment n'est peut-être pas le bon.\n\nJe reste connecté ici. Si un jour la question d'un changement ou d'une complémentarité fournisseur se pose, ma porte est ouverte.\n\nBonne continuation à ${enseigne} !\n\n${sig}`;
+  }
+  return `Bonjour ${prenom}, merci pour votre retour.\n\n${sig}`;
+}
+
+function renderLinkedinContactPanel(p) {
+  const state = p.li_contact_state || 'a_contacter';
+  const liUrl = p.linkedin_url
+    ? p.linkedin_url
+    : `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent([(p.contact_prenom||''),(p.contact_nom||''),p.enseigne].filter(Boolean).join(' '))}`;
+  const isRealUrl = !!p.linkedin_url;
+  const msg = generateLinkedinQuickMessage(p, state);
+  const aiOk = (typeof aiAvailable === 'function') && aiAvailable();
+
+  const stateBtns = LI_STATES.map(s =>
+    `<button class="li-state-btn${s.id === state ? ' active' : ''}" onclick="setLiContactState('${escapeAttr(p.id)}','${s.id}')">${s.label}</button>`
+  ).join('');
+
+  return `<div id="liContactPanel_${escapeAttr(p.id)}" style="margin-top:4px;">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-2);margin-bottom:8px;">in État du contact LinkedIn</div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:${p.li_contact_date ? '6px' : '10px'};">${stateBtns}</div>
+    ${p.li_contact_date ? `<div style="font-size:11px;color:var(--text-3);margin-bottom:10px;">Mis à jour le ${fmtDate(p.li_contact_date.slice(0,10))}</div>` : ''}
+    <div class="li-msg-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-2);">Message prêt à copier</span>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;">
+          ${aiOk ? `<button class="btn btn-ia btn-sm" onclick="personalizeLinkedinMsg('${escapeAttr(p.id)}')">✨ Personnaliser (IA)</button>` : ''}
+          <button class="btn btn-sm btn-linkedin" onclick="copyAndOpenLinkedin('${escapeAttr(p.id)}','${escapeAttr(liUrl)}')">in ${isRealUrl ? 'Ouvrir profil' : 'Rechercher'} + Copier</button>
+        </div>
+      </div>
+      <textarea id="liMsg_${escapeAttr(p.id)}">${escapeHtml(msg)}</textarea>
+      <div id="liMsgStatus_${escapeAttr(p.id)}" style="margin-top:6px;"></div>
+    </div>
+    ${!isRealUrl ? `<div style="font-size:11px;color:var(--beetob-yellow-dark);margin-top:6px;">⚠️ URL LinkedIn manquante — renseigne-la dans la Fiche pour un deep-link direct vers le profil.</div>` : ''}
+  </div>`;
+}
+
+async function personalizeLinkedinMsg(pid) {
+  const p = STATE.prospects.find(x => x.id === pid);
+  if (!p || !aiReady()) return;
+  const ta = document.getElementById('liMsg_' + pid);
+  const status = document.getElementById('liMsgStatus_' + pid);
+  if (!ta) return;
+  const baseBody = ta.value;
+  if (status) status.innerHTML = '<div class="ia-loader"><div class="ia-spinner"></div>Personnalisation IA…</div>';
+  try {
+    const stateToStepIdx = { a_contacter:0, invite_envoyee:0, connecte:1, message_envoye:1, relance:2, repondu:3 };
+    const stepIdx = stateToStepIdx[p.li_contact_state || 'a_contacter'] || 0;
+    const r = await personalizeMessage(p, 'linkedin', stepIdx, '', baseBody);
+    if (r.body) ta.value = r.body;
+    if (status) { status.innerHTML = '<div class="alert success" style="margin-top:4px;">✓ Personnalisé — relis avant envoi.</div>'; setTimeout(() => { if (status) status.innerHTML = ''; }, 4000); }
+  } catch (e) {
+    if (status) status.innerHTML = `<div class="alert">Erreur IA : ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function copyAndOpenLinkedin(pid, url) {
+  const ta = document.getElementById('liMsg_' + pid);
+  const msg = ta ? ta.value : '';
+  try { await navigator.clipboard.writeText(msg); toast('Message copié — colle dans LinkedIn', 'success'); }
+  catch { if (msg) alert('Copie manuelle :\n' + msg); }
+  window.open(url, '_blank', 'noopener');
 }
 
 /* ==========================================================
@@ -7928,6 +8258,22 @@ function prospectContactLines(p) {
   return L;
 }
 function openProspectMaps(id) { const p = (STATE.prospects || []).find(x => x.id === id); if (!p) return; window.open(prospectMapsUrl(p), '_blank', 'noopener'); }
+
+// ===== DEVIS & REMISES (v4.11) — liste légère rattachée au prospect =====
+const DEVIS_STATUTS = [
+  { v: 'a_faire', l: 'À chiffrer', c: '#9AA0A6', en_cours: true },
+  { v: 'envoye',  l: 'Envoyé',    c: '#2D7DD2', en_cours: true },
+  { v: 'relance', l: 'Relancé',   c: '#E07B00', en_cours: true },
+  { v: 'accepte', l: 'Accepté',   c: '#2E9E4F', en_cours: false },
+  { v: 'refuse',  l: 'Refusé',    c: '#C0392B', en_cours: false }
+];
+function devisStatut(v) { return DEVIS_STATUTS.find(s => s.v === v) || DEVIS_STATUTS[1]; }
+function prospectDevis(p) { return Array.isArray(p && p.devis) ? p.devis : []; }
+function prospectDevisEnCours(p) { return prospectDevis(p).filter(d => devisStatut(d.statut).en_cours); }
+function prospectRemiseMax(p) {
+  const r = prospectDevis(p).map(d => parseFloat(d.remise) || 0);
+  return r.length ? Math.max.apply(null, r) : 0;
+}
 function vcardEscape(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n'); }
 function downloadVCard(id) {
   const p = (STATE.prospects || []).find(x => x.id === id); if (!p) return;
@@ -8083,6 +8429,10 @@ function renderProspectModal(p) {
   const naText = (p.nextAction && p.nextAction.text) ? escapeHtml(p.nextAction.text) : null;
   const score = (p.score !== undefined && p.score !== '' && p.score !== null) ? parseInt(p.score, 10) : null;
   const contactName = ((p.contact_prenom || '') + ' ' + (p.contact_nom || '')).trim();
+  const _cs = computeContactScore(p);
+  const contactabilityBlock = isExisting
+    ? `<div id="contactScoreBox" style="margin-bottom:14px;">${contactScoreBadgeHtml(p, false)}</div>`
+    : '';
 
   // ---- En-tête "waouh" : statut + action en un coup d'œil ----
   const hero = `
@@ -8095,6 +8445,7 @@ function renderProspectModal(p) {
         <div style="display:flex;gap:12px;align-items:center;flex-shrink:0;">
           ${score !== null ? `<div style="text-align:center;line-height:1;"><div style="font-size:24px;font-weight:800;">${score}</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;opacity:.85;margin-top:2px;">score</div></div>` : ''}
           <span style="background:rgba(255,255,255,.22);color:#fff;font-size:12px;font-weight:700;padding:5px 11px;border-radius:100px;white-space:nowrap;">${stadeLabel(stade)}</span>
+          <span style="background:rgba(255,255,255,.15);color:#fff;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:100px;white-space:nowrap;" title="Joignabilité ${_cs.score}/100">${_cs.level==='high'?'📶':_cs.level==='medium'?'📡':'📵'} ${_cs.score}/100</span>
         </div>
       </div>
       <div style="margin-top:13px;background:${overdue ? 'rgba(192,57,43,.95)' : 'rgba(255,255,255,.16)'};border-radius:10px;padding:10px 13px;font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -8201,10 +8552,136 @@ function renderProspectModal(p) {
       <button class="btn btn-sm btn-primary" onclick="shareProspect('${p.id}')">📤 Partager</button>
     </div>` : '';
 
+  const prepaCard = isExisting ? `<div id="prepaRdvBox">${renderPrepaRdv(p)}</div>` : '';
+  const devisBlock = isExisting ? renderDevisSection(p) : '';
+
   body.innerHTML = hero + quickBar + tabbar
-    + `<div id="ptab-fiche">${actionCard}${ficheFields}</div>`
+    + `<div id="ptab-fiche">${contactabilityBlock}${prepaCard}${actionCard}${ficheFields}${devisBlock}</div>`
     + (isExisting ? `<div id="ptab-ia" style="display:none;">${renderBriefSection(p)}</div>` : '')
     + (isExisting ? `<div id="ptab-suivi" style="display:none;">${renderActionsSection(p)}${renderNotesSection(p)}</div>` : '');
+}
+
+// ===== PRÉPA-RDV (v4.11) — tout pour préparer un RDV en un coup d'œil =====
+function renderPrepaRdv(p) {
+  // Coordonnées cliquables (tel / mail / maps / linkedin)
+  const coord = [];
+  if (p.mobile) coord.push(`<a href="tel:${escapeAttr(p.mobile.replace(/\s/g,''))}" style="color:var(--fpee-blue);text-decoration:none;">📱 ${escapeHtml(p.mobile)}</a>`);
+  if (p.telephone) coord.push(`<a href="tel:${escapeAttr(p.telephone.replace(/\s/g,''))}" style="color:var(--fpee-blue);text-decoration:none;">☎️ ${escapeHtml(p.telephone)}</a>`);
+  if (p.email && !/^contact-a-trouver-/.test(p.email)) coord.push(`<a href="mailto:${escapeAttr(p.email)}" style="color:var(--fpee-blue);text-decoration:none;">✉️ ${escapeHtml(p.email)}</a>`);
+  const adr = prospectAddressStr(p);
+  if (adr) coord.push(`<a href="${escapeAttr(prospectMapsUrl(p))}" target="_blank" rel="noopener" style="color:var(--fpee-blue);text-decoration:none;">📍 ${escapeHtml(adr)}</a>`);
+  if (p.linkedin_url) coord.push(`<a href="${escapeAttr(p.linkedin_url)}" target="_blank" rel="noopener" style="color:var(--linkedin);text-decoration:none;">in LinkedIn</a>`);
+
+  // Actions à mener : prochaine action + étapes de séquence dues
+  const actions = [];
+  if (p.nextAction && p.nextAction.text) {
+    const over = p.nextAction.date && parseDate(p.nextAction.date) < today();
+    actions.push(`🎯 ${escapeHtml(p.nextAction.text)}${p.nextAction.date ? ' · ' + fmtDate(p.nextAction.date) : ''}${over ? ' <strong style="color:var(--danger)">en retard</strong>' : ''}`);
+  }
+  const nE = getNextStep(p, 'email'), nL = getNextStep(p, 'linkedin');
+  if (nE && nE.dueDate <= today()) actions.push(`📧 Séquence email à envoyer (${escapeHtml((STATE.sequenceEmail[nE.stepIdx]||{}).label||'')})`);
+  if (nL && nL.dueDate <= today()) actions.push(`in Action LinkedIn à traiter`);
+  if (!actions.length) actions.push('<span style="color:var(--muted);font-style:italic;">Aucune action planifiée — définis-en une ci-dessous</span>');
+
+  // Devis en cours
+  const dc = prospectDevisEnCours(p);
+  const devisHtml = dc.length ? dc.map(d => {
+    const s = devisStatut(d.statut);
+    return `<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:3px 0;">
+      <span style="min-width:0;"><strong>${formatCurrency(d.montant||0)}</strong>${d.ref ? ' · ' + escapeHtml(d.ref) : ''}${d.remise ? ' · <span style="color:var(--accent);font-weight:700;">-' + d.remise + '%</span>' : ''}</span>
+      <span style="background:${s.c};color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;white-space:nowrap;">${s.l}</span>
+    </div>`;
+  }).join('') : '<span style="color:var(--muted);font-style:italic;">Aucun devis en cours</span>';
+  const remise = prospectRemiseMax(p);
+
+  return `
+    <div style="border:2px solid var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:18px;background:linear-gradient(135deg,#fffaf3,#fff);">
+      <div style="font-family:var(--sans);font-size:12px;font-weight:800;color:var(--accent);margin-bottom:11px;text-transform:uppercase;letter-spacing:.6px;">🤝 Prépa RDV — tout en un coup d'œil</div>
+      <div style="display:grid;grid-template-columns:1fr;gap:12px;">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">📇 Coordonnées</div>
+          <div style="display:flex;flex-direction:column;gap:3px;font-size:13.5px;">${coord.length ? coord.join('') : '<span style="color:var(--muted);font-style:italic;">À compléter</span>'}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">✅ Actions à mener</div>
+          <div style="display:flex;flex-direction:column;gap:3px;font-size:13.5px;">${actions.map(a => '<div>' + a + '</div>').join('')}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">💶 Devis en cours${remise ? ' · remise max consentie <span style="color:var(--accent);">-' + remise + '%</span>' : ''}</div>
+          <div style="font-size:13.5px;">${devisHtml}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ===== Section d'édition des devis (onglet Fiche) =====
+function renderDevisSection(p) {
+  const list = prospectDevis(p);
+  const rows = list.length ? list.map(d => {
+    const s = devisStatut(d.statut);
+    return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px;border:1px solid var(--rule);border-radius:8px;margin-bottom:6px;background:var(--paper-warm);">
+      <span style="font-weight:700;font-size:13px;">${formatCurrency(d.montant||0)}</span>
+      ${d.remise ? `<span style="color:var(--accent);font-weight:700;font-size:12px;">-${d.remise}%</span>` : ''}
+      ${d.ref ? `<span style="font-size:12px;color:var(--muted);">${escapeHtml(d.ref)}</span>` : ''}
+      ${d.date ? `<span style="font-size:11px;color:var(--muted);">${fmtDate(d.date)}</span>` : ''}
+      <select onchange="devisUpdateStatut('${d.id}', this.value)" style="margin-left:auto;font-size:12px;padding:3px 6px;border:1px solid var(--rule);border-radius:6px;">
+        ${DEVIS_STATUTS.map(st => `<option value="${st.v}" ${d.statut === st.v ? 'selected' : ''}>${st.l}</option>`).join('')}
+      </select>
+      <button onclick="devisRemove('${d.id}')" title="Supprimer" style="background:none;border:0;color:var(--danger);cursor:pointer;font-size:15px;">🗑</button>
+      ${d.note ? `<div style="flex-basis:100%;font-size:11.5px;color:var(--muted);">${escapeHtml(d.note)}</div>` : ''}
+    </div>`;
+  }).join('') : '<div style="font-size:12px;color:var(--muted);font-style:italic;margin-bottom:8px;">Aucun devis enregistré.</div>';
+
+  return `
+    <div id="devisSection" style="border:1.5px solid var(--rule);border-radius:12px;padding:14px 16px;margin-bottom:18px;">
+      <div style="font-family:var(--sans);font-size:12px;font-weight:700;color:var(--fpee-blue);margin-bottom:11px;text-transform:uppercase;letter-spacing:.6px;">💶 Devis &amp; remises</div>
+      ${rows}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin-top:8px;border-top:1px dashed var(--rule);padding-top:10px;">
+        <div style="flex:1;min-width:90px;"><label style="font-size:10.5px;color:var(--muted);">Réf.</label><input id="dv_ref" placeholder="DEV-…" style="width:100%;padding:5px;border:1px solid var(--rule);border-radius:6px;font-size:12.5px;"></div>
+        <div style="width:88px;"><label style="font-size:10.5px;color:var(--muted);">Montant €</label><input id="dv_montant" type="number" min="0" step="100" style="width:100%;padding:5px;border:1px solid var(--rule);border-radius:6px;font-size:12.5px;"></div>
+        <div style="width:66px;"><label style="font-size:10.5px;color:var(--muted);">Remise %</label><input id="dv_remise" type="number" min="0" max="100" style="width:100%;padding:5px;border:1px solid var(--rule);border-radius:6px;font-size:12.5px;"></div>
+        <div style="width:104px;"><label style="font-size:10.5px;color:var(--muted);">Statut</label><select id="dv_statut" style="width:100%;padding:5px;border:1px solid var(--rule);border-radius:6px;font-size:12.5px;">${DEVIS_STATUTS.map(st => `<option value="${st.v}">${st.l}</option>`).join('')}</select></div>
+        <button class="btn btn-sm btn-primary" onclick="devisAdd()">+ Ajouter</button>
+      </div>
+    </div>`;
+}
+async function _devisPersist() {
+  await saveKey('prospects', STATE.prospects);
+  // rafraîchit les blocs dépendants de la fiche ouverte
+  const p = STATE.currentProspect; if (!p) return;
+  const sec = document.getElementById('devisSection');
+  if (sec) sec.outerHTML = renderDevisSection(p);
+  const prep = document.getElementById('prepaRdvBox');
+  if (prep) prep.innerHTML = renderPrepaRdv(p);
+  if (typeof renderProspects === 'function') renderProspects();
+}
+async function devisAdd() {
+  const p = STATE.currentProspect; if (!p) return;
+  const montant = parseFloat((document.getElementById('dv_montant')||{}).value) || 0;
+  const ref = ((document.getElementById('dv_ref')||{}).value || '').trim();
+  if (!montant && !ref) { toast('Renseigne au moins un montant ou une référence', 'info'); return; }
+  if (!Array.isArray(p.devis)) p.devis = [];
+  p.devis.push({
+    id: 'dv_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    ref, montant,
+    remise: parseFloat((document.getElementById('dv_remise')||{}).value) || 0,
+    statut: (document.getElementById('dv_statut')||{}).value || 'envoye',
+    date: isoDate(today())
+  });
+  await _devisPersist();
+  toast('Devis ajouté', 'success');
+}
+async function devisUpdateStatut(id, val) {
+  const p = STATE.currentProspect; if (!p) return;
+  const d = prospectDevis(p).find(x => x.id === id); if (!d) return;
+  d.statut = val;
+  await _devisPersist();
+}
+async function devisRemove(id) {
+  const p = STATE.currentProspect; if (!p) return;
+  p.devis = prospectDevis(p).filter(x => x.id !== id);
+  await _devisPersist();
+  toast('Devis supprimé');
 }
 
 function sf_renderBrief(p) {
@@ -8292,20 +8769,26 @@ function renderActionsSection(p) {
   html += '<div class="next-action-channels">';
 
   if (nE) {
-    const s = STATE.sequenceEmail[nE.stepIdx];
+    const s = STATE.sequenceEmail[nE.stepIdx] || {};
     const isDue = nE.dueDate <= today();
-    html += `<div class="channel-card email"><h5>📧 EMAIL — ${isDue?'À ENVOYER':'Prévu '+fmtDate(isoDate(nE.dueDate))}</h5><p><strong>${s.label}</strong></p><div class="btns"><button class="btn btn-sm btn-outlook" onclick="openAction('${p.id}','email',${nE.stepIdx})">Préparer</button></div></div>`;
+    html += `<div class="channel-card email"><h5>📧 EMAIL — ${isDue?'À ENVOYER':'Prévu '+fmtDate(isoDate(nE.dueDate))}</h5><p><strong>${escapeHtml(s.label||'—')}</strong></p><div class="btns"><button class="btn btn-sm btn-outlook" onclick="openAction('${p.id}','email',${nE.stepIdx})">Préparer</button></div></div>`;
   } else {
     html += `<div class="channel-card email"><h5>📧 EMAIL</h5><p style="color:var(--muted);font-style:italic;">${['rdv','signe','perdu','pause'].includes(p.stade)?'Séquence stoppée':'Terminée'}</p></div>`;
   }
   if (nL) {
-    const s = STATE.sequenceLinkedin[nL.stepIdx];
+    const s = STATE.sequenceLinkedin[nL.stepIdx] || {};
     const isDue = nL.dueDate <= today();
-    html += `<div class="channel-card linkedin"><h5>in LINKEDIN — ${isDue?'À TRAITER':'Prévu '+fmtDate(isoDate(nL.dueDate))}</h5><p><strong>${s.label}</strong></p><div class="btns"><button class="btn btn-sm btn-linkedin" onclick="openAction('${p.id}','linkedin',${nL.stepIdx})">Préparer</button></div></div>`;
+    html += `<div class="channel-card linkedin"><h5>in LINKEDIN — ${isDue?'À TRAITER':'Prévu '+fmtDate(isoDate(nL.dueDate))}</h5><p><strong>${escapeHtml(s.label||'—')}</strong></p><div class="btns"><button class="btn btn-sm btn-linkedin" onclick="openAction('${p.id}','linkedin',${nL.stepIdx})">Préparer séquence</button></div></div>`;
   } else {
     html += `<div class="channel-card linkedin"><h5>in LINKEDIN</h5><p style="color:var(--muted);font-style:italic;">${['rdv','signe','perdu','pause'].includes(p.stade)?'Séquence stoppée':'Terminée'}</p></div>`;
   }
   html += '</div>';
+  // ---- Panneau LinkedIn : état du contact + générateur de message (v4.12) ----
+  html += `<hr style="border:0;border-top:1px solid var(--rule);margin:16px 0 12px;">
+    <div style="background:linear-gradient(135deg,#f0f4ff,#fff);border:1.5px solid rgba(10,102,194,.18);border-radius:var(--radius-lg);padding:16px 18px;">
+      <div style="font-family:var(--sans);font-size:12px;font-weight:800;color:var(--linkedin);margin-bottom:12px;text-transform:uppercase;letter-spacing:.6px;">in Prise de contact LinkedIn</div>
+      ${renderLinkedinContactPanel(p)}
+    </div>`;
   return html;
 }
 
