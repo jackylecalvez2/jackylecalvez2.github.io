@@ -3886,7 +3886,7 @@ window.addEventListener('unhandledrejection', function(e) {
       </div>
       <div class="sidebar-brand-text">
         <strong>BeetoB</strong>
-        <small>FPEE · Réseau · v4.13.1</small>
+        <small>FPEE · Réseau · v4.14.0</small>
       </div>
     </div>
 
@@ -4486,6 +4486,20 @@ window.addEventListener('unhandledrejection', function(e) {
     <span id="sf_status" style="font-size:12px;color:var(--muted);align-self:center;"></span>
   </div>
   <div id="sf_results" style="margin-top:14px;"></div>
+
+  <!-- Section DVF — leads froids géographiques -->
+  <div style="margin-top:28px;border-top:1px solid var(--rule);padding-top:20px;">
+    <h3 style="font-family:var(--sans);font-size:16px;margin-bottom:4px;">🏠 DVF — Nouvelles acquisitions immobilières</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Detectez les maisons récemment vendues dans votre zone : acheteurs potentiels de fenêtres/portes dans les 6-24 mois.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+      <input id="dvf_insee" type="text" placeholder="Code INSEE commune ex: 57463 (Metz)" class="form-control" style="max-width:240px;">
+      <input id="dvf_dateMin" type="date" class="form-control" style="max-width:160px;"
+             value="${new Date(Date.now()-365*24*3600*1000).toISOString().slice(0,10)}">
+      <button class="btn btn-primary" onclick="sf_runDVFSearch()">🔍 Rechercher les transactions DVF</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Le code INSEE commune est différent du code postal — ex : Metz = 57463, Strasbourg = 67482, Lyon 1er = 69381. Trouvez-le sur <a href="https://www.insee.fr/fr/recherche/recherche-geographique" target="_blank" style="color:var(--link);">insee.fr</a></div>
+    <div id="dvf_sf_results"></div>
+  </div>
 </section>
 
 <!-- ============== SUIVI ============== -->
@@ -4909,7 +4923,7 @@ window.addEventListener('unhandledrejection', function(e) {
 
 const USER = { prenom: 'Jacky', nom: '', titre: 'Direction Commerciale' };
 
-const APP_VERSION = '4.13.1';
+const APP_VERSION = '4.14.1';
 
 const ANTHROPIC_MODEL = 'claude-sonnet-4-5';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
@@ -5543,7 +5557,7 @@ let STATE = {
 // fichier, contrairement à window.storage qui n'existe qu'en aperçu d'artefact.
 // - Les clés de configuration IA sont GLOBALES (configurées une seule fois).
 // - Les données métier sont isolées PAR PROFIL.
-const BEETOB_GLOBAL_KEYS = new Set(['api_key', 'claude_model', 'ai_engine', 'gemini_key', 'gemini_model', 'lm_studio_url', 'lm_studio_model', 'ai_config', 'copilot_token', 'copilot_endpoint', 'copilot_client_id', 'copilot_tenant_id', 'copilot_msal_url', 'ft_client_id', 'ft_client_secret', 'inpi_user', 'inpi_pass']);
+const BEETOB_GLOBAL_KEYS = new Set(['api_key', 'claude_model', 'ai_engine', 'gemini_key', 'gemini_model', 'lm_studio_url', 'lm_studio_model', 'ai_config', 'copilot_token', 'copilot_endpoint', 'copilot_client_id', 'copilot_tenant_id', 'copilot_msal_url', 'ft_client_id', 'ft_client_secret', 'inpi_user', 'inpi_pass', 'pappers_token']);
 // ============================================================
 // STOCKAGE IndexedDB (v4.10.0) — magasin primaire des données (capacité large,
 // fini le quota ~5 Mo de localStorage et l'échec d'écriture silencieux).
@@ -6945,6 +6959,7 @@ async function init() {
   STATE.inpiUser = await loadKey('inpi_user', '');
   STATE.inpiPass = await loadKey('inpi_pass', '');
   STATE.inpiToken = null; STATE.inpiTokenExp = 0;
+  STATE.pappersToken = await loadKey('pappers_token', '');
   // Si LM Studio configuré, on tente une reconnexion silencieuse au démarrage
   if (STATE.aiEngine === 'lmstudio' && STATE.lmStudioModel) {
     testLMStudio().catch(() => {}); // silent
@@ -7866,7 +7881,8 @@ function renderProspectsCards() {
   const recoClass = r => (r || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
   wrap.innerHTML = rows.map(p => {
-    const score = p.score || 0;
+    const score = getEffectiveScore(p);
+    const scorePenalty = getEffectiveScoreLabel(p);
     const sCls = score >= 70 ? 'high' : score >= 50 ? 'mid' : 'low';
     const hot = score >= 70 || (p.iaAxes && recoClass(p.iaAxes.reco) === 'chaud');
     const ville = [p.ville, p.cp].filter(Boolean).join(' ');
@@ -7944,9 +7960,9 @@ function renderProspectsCards() {
       <div class="pcard-col">
         <div class="pcard-section-label">Qualification</div>
         <div class="pcard-score-row">
-          <div class="pcard-score ${sCls}">${score}</div>
-          ${p.iaAxes && p.iaAxes.reco ? `<span class="pcard-reco ${recoClass(p.iaAxes.reco)}">${escapeHtml(p.iaAxes.reco)}</span>` : ''}
-          ${p.iaScored ? '<span title="Scoré par IA" style="font-size:13px;">✨</span>' : ''}
+          <div class="pcard-score ${sCls}" title="${scorePenalty ? `Score IA : ${p.score||0} → ajusté ${score} (${scorePenalty})` : `Score : ${score}`}">${score}${scorePenalty ? '<span style="font-size:8px;vertical-align:super;margin-left:1px;color:inherit;opacity:.7">↓</span>' : ''}</div>
+          ${scorePenalty ? `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:var(--radius-full);background:rgba(220,53,69,.12);color:#DC3545;">${scorePenalty}</span>` : (p.iaAxes && p.iaAxes.reco ? `<span class="pcard-reco ${recoClass(p.iaAxes.reco)}">${escapeHtml(p.iaAxes.reco)}</span>` : '')}
+          ${p.iaScored && !scorePenalty ? '<span title="Scoré par IA" style="font-size:13px;">✨</span>' : ''}
           ${p.rgeData && (p.rgeData.activeCount || p.rgeData.count) ? `<span title="Certifié RGE${p.rgeData.fenetres ? ' — Fenêtres/portes/volets' : ''}" style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:var(--radius-full);background:rgba(45,138,79,0.12);color:var(--moss);">🌿 RGE${p.rgeData.fenetres ? ' Fenêtres' : ''}</span>` : ''}
         </div>
         ${qualif}
@@ -7977,6 +7993,30 @@ function getBodaccAlert(p) {
   if (crit) return crit;
   const high = p.bodaccData.annonces.find(a => a.severity === 'high');
   return high || null;
+}
+
+// Score effectif = score IA corrigé par les alertes légales BODACC/INSEE
+// Le score IA stocké (p.score) reste intact — seul l'affichage est ajusté.
+function getEffectiveScore(p) {
+  const base = p.score || 0;
+  const ba = getBodaccAlert(p);
+  if (!ba) {
+    // Vérifier aussi le statut INSEE (entreprise fermée)
+    if (p.inseeData && p.inseeData.etat && p.inseeData.etat !== 'A') return Math.min(base, 15);
+    return base;
+  }
+  if (ba.severity === 'critical') return Math.min(base, 12); // procédure collective → plafonné à 12
+  if (ba.severity === 'high')     return Math.min(base, 35); // radiation/cession → plafonné à 35
+  return Math.max(0, base - 10); // medium → -10
+}
+
+function getEffectiveScoreLabel(p) {
+  const ba = getBodaccAlert(p);
+  const closed = p.inseeData && p.inseeData.etat && p.inseeData.etat !== 'A';
+  if (ba && ba.severity === 'critical') return 'BODACC procédure';
+  if (ba && ba.severity === 'high')     return 'BODACC alerte';
+  if (closed)                           return 'INSEE fermé';
+  return null;
 }
 
 // Colonnes de remise tirées de la grille ProDevis/ELCIA
@@ -8501,6 +8541,7 @@ function renderProspectModal(p) {
     if (isExisting) {
       btns.push(`<button onclick="openProspectMaps('${p.id}')" style="background:rgba(255,255,255,.18);color:#fff;border:0;font-weight:600;font-size:12.5px;padding:7px 13px;border-radius:8px;cursor:pointer;white-space:nowrap;">📍 Maps</button>`);
       if (p.linkedin_url) btns.push(`<a href="${escapeAttr(p.linkedin_url)}" target="_blank" rel="noopener" style="background:rgba(10,102,194,.7);color:#fff;font-weight:700;font-size:12.5px;padding:7px 13px;border-radius:8px;text-decoration:none;white-space:nowrap;">in LinkedIn</a>`);
+      if (!_client) btns.push(`<button onclick="if(confirm('Convertir ce prospect en CLIENT (stade Signé) ?')){setProspectStade('${p.id}','signe');closeModal('modalProspect');setTimeout(()=>openProspect('${p.id}'),200);}" style="background:#2E7D32;color:#fff;border:0;font-weight:800;font-size:12.5px;padding:7px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(46,125,50,.45);">✅ Convertir en client</button>`);
     }
     return btns;
   })();
@@ -8675,6 +8716,12 @@ function renderProspectModal(p) {
         <div class="field"><label>Code postal</label><input id="f_cp" value="${escapeAttr(p.cp||'')}"></div>
       </div>
       <div class="form-row">
+        <div class="field" style="grid-column:1/-1;display:flex;align-items:center;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="runGeocodeManuel()" style="white-space:nowrap;">📍 Géocoder l'adresse</button>
+          <span id="geocodeStatus" style="font-size:11px;color:var(--muted);">${p.lat && p.lng ? '✓ Géolocalisé (' + p.lat.toFixed(4) + ', ' + p.lng.toFixed(4) + ')' : 'Non géolocalisé — renseigne ville + CP puis clique Géocoder'}</span>
+        </div>
+      </div>
+      <div class="form-row">
         <div class="field"><label>Fournisseur actuel</label><input id="f_fournisseur" value="${escapeAttr(p.fournisseur||'')}"></div>
         <div class="field" style="display:flex;align-items:flex-end;"><button class="btn btn-ia btn-sm" onclick="rescoreProspect()" ${aiAvailable()?'':'disabled'} style="width:100%;">${aiAvailable()?'Re-scorer avec IA':'Configure le moteur IA'}</button></div>
       </div>
@@ -8813,14 +8860,30 @@ function renderBriefSection(p) {
         <button class="btn btn-sm" style="background:#3B6FD4;color:white;border-color:#3B6FD4;" onclick="runInseeCheck()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:6px"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>INSEE</button>
         <button class="btn btn-sm" style="background:#E85C1A;color:white;border-color:#E85C1A;" onclick="runFtCheck()" title="${ftConfigured()?'Offres d\'emploi actives':'Configurer France Travail dans Connexions › Signaux'}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:6px"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Emplois</button>
         <button class="btn btn-sm" style="background:#7B3FA0;color:white;border-color:#7B3FA0;" onclick="runInpiCheck()" title="${inpiConfigured()?'RNE + Comptes annuels INPI':'Configurer INPI dans Connexions › Finance'}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:6px"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>INPI</button>
+        <button class="btn btn-sm" style="background:#1B7A4E;color:white;border-color:#1B7A4E;" onclick="runAnnuaireCheck()">🏢 Annuaire</button>
+        <button class="btn btn-sm" style="background:#E65C00;color:white;border-color:#E65C00;" onclick="runPappersCheck()" title="${pappersConfigured()?'Enrichissement Pappers':'Token Pappers optionnel — 100 req/j gratuit sans token'}">📊 Pappers</button>
       </div>
     </div>
     <div id="bodaccBox">${p.bodaccData ? renderBodaccCards(p.bodaccData) : ''}</div>
     <div id="rgeBox" style="margin-top:8px;">${p.rgeData ? renderRgeCard(p.rgeData) : ''}</div>
     <div id="inseeBox" style="margin-top:8px;">${p.inseeData ? renderInseeCard(p.inseeData) : ''}</div>
+    <div id="annuaireBox" style="margin-top:8px;">${p.annuaireData ? renderAnnuaireCard(p.annuaireData) : ''}</div>
+    <div id="pappersBox" style="margin-top:8px;">${p.pappersData ? renderPappersCard(p.pappersData) : ''}</div>
     <div id="ftBox" style="margin-top:8px;">${p.ftData ? renderFtCard(p.ftData) : ''}</div>
     <div id="inpiBox" style="margin-top:8px;">${p.inpiData ? renderInpiCard(p.inpiData) : ''}</div>
-    ${!p.bodaccData && !p.rgeData && !p.inseeData && !p.ftData && !p.inpiData ? '<div style="font-size:12px;color:var(--muted);font-style:italic;margin-top:6px;padding:8px 10px;background:var(--paper-warm);border-radius:6px;"><strong>Sources gratuites :</strong> 📜 <strong>BODACC</strong> = annonces légales · 🌿 <strong>RGE</strong> = certifications ADEME · 🏛️ <strong>INSEE</strong> = fiche officielle · 💼 <strong>INPI</strong> = RNE + comptes annuels. Nécessite un SIREN sur la fiche.</div>' : ''}
+    <div style="margin-top:8px;">
+      ${p.lat && p.lng
+        ? `<button class="btn btn-sm" style="background:#0D6EFD;color:white;border-color:#0D6EFD;font-size:12px;" onclick="runDVFProximite(${p.lat},${p.lng})">🏠 DVF à proximité (2 km)</button>
+           <button class="btn btn-sm btn-ghost" style="font-size:12px;margin-left:4px;" onclick="runGeocodeManuel()">📍 Re-géocoder</button>`
+        : `<button class="btn btn-sm" style="background:#0D6EFD;color:white;border-color:#0D6EFD;font-size:12px;" onclick="runGeocodeManuel()">📍 Géocoder l'adresse</button>`}
+      <div id="dvfProxBox" style="margin-top:6px;"></div>
+    </div>
+    <div style="margin-top:4px;font-size:11px;">
+      ${p.lat && p.lng
+        ? `<span style="color:var(--success);">📍 Géolocalisé ✓ (${p.lat.toFixed(4)}, ${p.lng.toFixed(4)})</span>`
+        : '<span style="color:var(--muted);">📍 Non géolocalisé — clique « Géocoder l\'adresse » pour activer DVF à proximité</span>'}
+    </div>
+    ${!p.bodaccData && !p.rgeData && !p.inseeData && !p.ftData && !p.inpiData && !p.annuaireData && !p.pappersData ? '<div style="font-size:12px;color:var(--muted);font-style:italic;margin-top:6px;padding:8px 10px;background:var(--paper-warm);border-radius:6px;"><strong>Sources gratuites :</strong> 📜 <strong>BODACC</strong> = annonces légales · 🌿 <strong>RGE</strong> = certifications ADEME · 🏛️ <strong>INSEE</strong> = fiche officielle · 🏢 <strong>Annuaire</strong> = dirigeants + risque · 💼 <strong>INPI</strong> = RNE + comptes annuels · 📊 <strong>Pappers</strong> = dirigeants + CA + score risque · 🏠 <strong>DVF</strong> = ventes à proximité (nécessite géolocalisation). Nécessite un SIREN sur la fiche.</div>' : ''}
 
     <hr style="border:0;border-top:1px solid var(--rule);margin:16px 0;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:6px;flex-wrap:wrap;">
@@ -9036,6 +9099,16 @@ async function saveProspect() {
     });
   }
   await saveKey('prospects', STATE.prospects);
+
+  // Auto-géocodage silencieux si adresse disponible et pas encore géolocalisé
+  const saved = STATE.currentProspect || STATE.prospects[STATE.prospects.length - 1];
+  if (saved && !saved.lat && (saved.ville || saved.adresse)) {
+    try {
+      const found = await carte_geocodeOne(saved);
+      if (found) await saveKey('prospects', STATE.prospects);
+    } catch(e) { /* silencieux */ }
+  }
+
   closeModal('modalProspect');
   renderAll();
   toast('Enregistré', 'success');
@@ -11367,6 +11440,15 @@ async function runInseeCheck() {
       } catch(e) { /* silencieux */ }
     }
 
+    // Auto-vérification Annuaire silencieuse si pas encore fait
+    if (!p.annuaireData) {
+      try {
+        const annuaireRaw = await fetchAnnuaireEntreprises(p.siren);
+        p.annuaireData = { date: new Date().toISOString(), ...annuaireRaw };
+        saveProspects();
+      } catch(e) { /* silencieux */ }
+    }
+
   } catch(e) {
     box.innerHTML = `<div class="alert danger">Erreur INSEE : ${escapeHtml(e.message)}</div>`;
   }
@@ -11410,6 +11492,345 @@ function renderInseeCard(data) {
     </div>
     <div style="margin-top:10px;"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Dirigeant(s)</div>${dirsHtml}</div>
   </div>`;
+}
+
+/* ==========================================================
+   MODULE ANNUAIRE ENTREPRISES (data.gouv.fr) — gratuit, sans auth, CORS OK
+   API  : recherche-entreprises.api.gouv.fr/search
+   ========================================================== */
+
+async function fetchAnnuaireEntreprises(siren) {
+  const r = await fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(siren)}&page=1&per_page=1`);
+  if (!r.ok) throw new Error(`Annuaire ${r.status}`);
+  const d = await r.json();
+  const res = d.results && d.results[0];
+  if (!res) throw new Error('Entreprise non trouvée');
+  return res;
+}
+
+function computeRisqueScore(p) {
+  let score = 3;
+  const ad = p.annuaireData;
+  if (!ad) return null;
+  if (ad.etat && ad.etat !== 'A') score -= 3;
+  if (p.bodaccData) {
+    const hasCrit = (p.bodaccData.annonces||[]).some(a => a.severity === 'critical');
+    const hasHigh = (p.bodaccData.annonces||[]).some(a => a.severity === 'high');
+    if (hasCrit) score -= 3;
+    else if (hasHigh) score -= 1;
+  }
+  const age = ad.date_creation ? Math.floor((Date.now() - new Date(ad.date_creation)) / (365.25*24*3600*1000)) : null;
+  if (age !== null && age < 2) score -= 1;
+  return Math.max(0, Math.min(5, score));
+}
+
+function risqueLabel(score) {
+  if (score === null) return '';
+  if (score <= 1) return '<span style="color:#DC3545;font-weight:700;">🔴 Risque élevé</span>';
+  if (score <= 2) return '<span style="color:#E67E22;font-weight:700;">🟠 Risque modéré</span>';
+  return '<span style="color:#27AE60;font-weight:700;">🟢 Faible risque</span>';
+}
+
+function renderAnnuaireCard(data) {
+  if (!data) return '';
+  const siren = data.siren || '';
+  const nom = data.nom_raison_sociale || data.nom_complet || '—';
+  const naf = data.activite_principale || '—';
+  const tranche = data.tranche_effectif_salarie || '';
+  const effectif = INSEE_EFFECTIF_LABELS[tranche] || (tranche ? tranche : '—');
+  const categorie = data.categorie_entreprise || '';
+  const dateCreation = data.date_creation || '';
+  const etat = data.etat_administratif || 'A';
+  const etatBadge = etat === 'A'
+    ? '<span style="color:var(--success);font-weight:700;">✅ Actif</span>'
+    : `<span style="color:var(--danger);font-weight:700;">⛔ Non actif (${etat})</span>`;
+
+  const age = dateCreation ? Math.floor((Date.now() - new Date(dateCreation)) / (365.25*24*3600*1000)) : null;
+  const ageStr = age !== null ? `${age} an${age !== 1 ? 's' : ''}` : '';
+
+  const dirigeants = (data.dirigeants || []);
+  const dirsHtml = dirigeants.length
+    ? `<table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:4px;">
+        <thead><tr><th style="text-align:left;padding:2px 6px;color:var(--muted);">Nom</th><th style="text-align:left;padding:2px 6px;color:var(--muted);">Prénom</th><th style="text-align:left;padding:2px 6px;color:var(--muted);">Qualité / Mandat</th></tr></thead>
+        <tbody>${dirigeants.map(d => `<tr><td style="padding:2px 6px;font-weight:600;">${escapeHtml((d.nom||'').toUpperCase())}</td><td style="padding:2px 6px;">${escapeHtml(d.prenom||'')}</td><td style="padding:2px 6px;color:var(--muted);">${escapeHtml(d.qualite||d.type||'')}</td></tr>`).join('')}</tbody>
+      </table>`
+    : '<span style="color:var(--muted);font-size:12px;">Dirigeants non diffusés</span>';
+
+  const scoreVal = computeRisqueScore({ annuaireData: data });
+  const risqueBadge = risqueLabel(scoreVal);
+
+  return `<div style="background:var(--surface-2);border:1px solid var(--border-1);border-radius:var(--radius);padding:14px;margin-top:4px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <strong style="font-size:14px;">🏢 ${escapeHtml(nom)}</strong>
+      ${etatBadge}
+      ${risqueBadge}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:12px;margin-bottom:8px;">
+      <div><span style="color:var(--muted);">SIREN</span> <strong>${escapeHtml(siren)}</strong></div>
+      <div><span style="color:var(--muted);">NAF</span> ${escapeHtml(naf)}</div>
+      <div><span style="color:var(--muted);">Effectif</span> ${escapeHtml(effectif)}</div>
+      <div><span style="color:var(--muted);">Catégorie</span> ${escapeHtml(categorie || '—')}</div>
+      <div><span style="color:var(--muted);">Création</span> ${dateCreation ? new Date(dateCreation).toLocaleDateString('fr-FR') : '—'} ${ageStr ? `<span style="color:var(--muted);">(${ageStr})</span>` : ''}</div>
+    </div>
+    <div style="font-size:12px;font-weight:600;margin-bottom:4px;color:var(--muted);">DIRIGEANTS</div>
+    ${dirsHtml}
+    <div style="margin-top:10px;font-size:11px;">
+      <a href="https://annuaire-entreprises.data.gouv.fr/entreprise/${escapeAttr(siren)}" target="_blank" style="color:var(--link);">↗ Fiche complète annuaire-entreprises.data.gouv.fr</a>
+    </div>
+    <div style="margin-top:4px;font-size:10px;color:var(--muted);">Mis à jour ${data.date ? new Date(data.date).toLocaleDateString('fr-FR') : '—'}</div>
+  </div>`;
+}
+
+async function runAnnuaireCheck() {
+  const p = STATE.currentProspect; if (!p) return;
+  if (!p.siren) { toast('SIREN requis', 'warning'); return; }
+  const box = document.getElementById('annuaireBox');
+  if (box) box.innerHTML = '<div class="ia-loader"><div class="ia-spinner"></div>Consultation Annuaire Entreprises…</div>';
+  try {
+    const data = await fetchAnnuaireEntreprises(p.siren);
+    p.annuaireData = { date: new Date().toISOString(), ...data };
+    saveProspects();
+    if (box) box.innerHTML = renderAnnuaireCard(p.annuaireData);
+    toast('✓ Annuaire mis à jour', 'success');
+  } catch(e) {
+    if (box) box.innerHTML = `<div class="alert danger">Erreur Annuaire : ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+/* ==========================================================
+   MODULE PAPPERS — Enrichissement SIREN (pappers.fr)
+   Gratuit jusqu'à 100 req/j sans token · données publiques limitées
+   Avec token API Pappers : dirigeants, CA, score risque BDF
+   API  : api.pappers.fr/v2/entreprise?siren={siren}&api_token={token}
+   ========================================================== */
+
+function pappersConfigured() { return !!(STATE.pappersToken && STATE.pappersToken.trim()); }
+
+async function savePappersConfig(token) {
+  STATE.pappersToken = (token || '').trim();
+  await saveKey('pappers_token', STATE.pappersToken);
+  toast('✓ Token Pappers enregistré', 'success');
+  renderConnections();
+}
+
+async function fetchPappers(siren) {
+  if (!siren) throw new Error('SIREN requis');
+  const token = (STATE.pappersToken || '').trim();
+  let url = `https://api.pappers.fr/v2/entreprise?siren=${encodeURIComponent(siren)}`;
+  if (token) url += `&api_token=${encodeURIComponent(token)}`;
+  const r = await fetch(url);
+  if (r.status === 401 || r.status === 403) throw new Error('Token Pappers invalide ou quota dépassé');
+  if (!r.ok) throw new Error(`Pappers ${r.status}`);
+  return r.json();
+}
+
+function renderPappersCard(data) {
+  if (!data) return '';
+  const nom = data.nom_entreprise || data.nom_raison_sociale || '—';
+  const siren = data.siren || '—';
+  const formeJuridique = data.forme_juridique || '—';
+  const categorieJuridique = data.libelle_categorie_juridique || '';
+  const etat = data.statut || data.etat_administratif || 'Actif';
+  const etatBadge = /ferme|cesse|radié|inactif/i.test(etat)
+    ? `<span style="color:var(--danger);font-weight:700;">⛔ ${escapeHtml(etat)}</span>`
+    : `<span style="color:var(--success);font-weight:700;">✅ ${escapeHtml(etat)}</span>`;
+
+  const scoreRisque = data.score_popularite || data.score_financier || null;
+  const scoreBadge = scoreRisque !== null
+    ? (scoreRisque < 40
+        ? `<span style="background:#DC3545;color:#fff;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:700;">🔴 Risque élevé (${scoreRisque}/100)</span>`
+        : scoreRisque < 70
+          ? `<span style="background:#E67E22;color:#fff;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:700;">🟠 Risque modéré (${scoreRisque}/100)</span>`
+          : `<span style="background:#27AE60;color:#fff;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:700;">🟢 Faible risque (${scoreRisque}/100)</span>`)
+    : '';
+
+  const dirigeants = data.representants || data.dirigeants || [];
+  const dirsHtml = dirigeants.length
+    ? `<table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:4px;">
+        <thead><tr><th style="text-align:left;padding:2px 6px;color:var(--muted);">Nom</th><th style="text-align:left;padding:2px 6px;color:var(--muted);">Qualité</th><th style="text-align:left;padding:2px 6px;color:var(--muted);">Depuis</th></tr></thead>
+        <tbody>${dirigeants.slice(0,5).map(d => {
+          const nom_d = [d.nom, d.prenom].filter(Boolean).join(' ') || d.denomination || '—';
+          const qualite = d.qualite || d.type || '—';
+          const depuis = d.date_prise_de_poste ? new Date(d.date_prise_de_poste).toLocaleDateString('fr-FR') : '—';
+          return `<tr><td style="padding:2px 6px;font-weight:600;">${escapeHtml(nom_d)}</td><td style="padding:2px 6px;color:var(--muted);">${escapeHtml(qualite)}</td><td style="padding:2px 6px;color:var(--muted);">${depuis}</td></tr>`;
+        }).join('')}</tbody>
+      </table>`
+    : '<span style="color:var(--muted);font-size:12px;">Dirigeants non diffusés</span>';
+
+  const finances = data.finances || [];
+  const finRow = finances.length > 0 ? finances[0] : null;
+  const ca = finRow ? (finRow.chiffre_affaires || finRow.ca || null) : null;
+  const resultat = finRow ? (finRow.resultat || null) : null;
+  const effectif = data.tranche_effectif || data.effectif || null;
+
+  const finHtml = finRow
+    ? `<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;font-size:12px;">
+        ${ca !== null ? `<div><span style="color:var(--muted);">CA</span> <strong>${(ca/1000).toFixed(0)} k€</strong></div>` : ''}
+        ${resultat !== null ? `<div><span style="color:var(--muted);">Résultat</span> <strong style="color:${resultat >= 0 ? 'var(--success)' : 'var(--danger)'}">${(resultat/1000).toFixed(0)} k€</strong></div>` : ''}
+        ${finRow.annee ? `<div><span style="color:var(--muted);">Exercice</span> ${finRow.annee}</div>` : ''}
+      </div>`
+    : '';
+
+  return `<div style="background:var(--surface-2);border:1px solid var(--border-1);border-radius:var(--radius);padding:14px;margin-top:4px;">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+      <strong style="font-size:14px;">📊 ${escapeHtml(nom)}</strong>
+      ${etatBadge}
+      ${scoreBadge}
+      <span style="font-size:10px;color:var(--muted);">Pappers · ${data.date ? new Date(data.date).toLocaleDateString('fr-FR') : '—'}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:12px;margin-bottom:8px;">
+      <div><span style="color:var(--muted);">SIREN</span> <strong>${escapeHtml(siren)}</strong></div>
+      <div><span style="color:var(--muted);">Forme</span> ${escapeHtml(formeJuridique)}</div>
+      ${effectif ? `<div><span style="color:var(--muted);">Effectif</span> ${escapeHtml(String(effectif))}</div>` : ''}
+      ${categorieJuridique ? `<div><span style="color:var(--muted);">Catégorie</span> ${escapeHtml(categorieJuridique)}</div>` : ''}
+    </div>
+    ${finHtml}
+    <div style="font-size:12px;font-weight:600;margin:8px 0 4px;color:var(--muted);">DIRIGEANTS</div>
+    ${dirsHtml}
+    <div style="margin-top:10px;font-size:11px;">
+      <a href="https://www.pappers.fr/entreprise/${escapeAttr(siren)}" target="_blank" style="color:var(--link);">↗ Fiche complète pappers.fr</a>
+    </div>
+  </div>`;
+}
+
+async function runPappersCheck() {
+  const p = STATE.currentProspect; if (!p) return;
+  if (!p.siren) { toast('SIREN requis pour Pappers', 'warning'); return; }
+  const box = document.getElementById('pappersBox');
+  if (box) box.innerHTML = '<div class="ia-loader"><div class="ia-spinner"></div>Consultation Pappers…</div>';
+  try {
+    const data = await fetchPappers(p.siren);
+    p.pappersData = { date: new Date().toISOString(), ...data };
+    saveProspects();
+    if (box) box.innerHTML = renderPappersCard(p.pappersData);
+    toast('✓ Pappers mis à jour', 'success');
+  } catch(e) {
+    if (box) box.innerHTML = `<div class="alert danger">Erreur Pappers : ${escapeHtml(e.message)}</div>`;
+    toast(`Pappers : ${e.message}`, 'danger');
+  }
+}
+
+/* ==========================================================
+   MODULE GÉOCODAGE MANUEL — BAN (api-adresse.data.gouv.fr)
+   Géocode le prospect courant depuis la fiche (ville + CP)
+   ========================================================== */
+
+async function runGeocodeManuel() {
+  const p = STATE.currentProspect; if (!p) return;
+  const ville = (document.getElementById('f_ville') || {}).value || p.ville || '';
+  const cp = (document.getElementById('f_cp') || {}).value || p.cp || '';
+  const adresse = p.adresse || '';
+  const q = [adresse, cp, ville].filter(Boolean).join(' ').trim();
+  if (!q) { toast('Renseigne au moins la ville ou le code postal', 'warning'); return; }
+  const statusEl = document.getElementById('geocodeStatus');
+  if (statusEl) statusEl.textContent = 'Géocodage en cours…';
+  try {
+    const r = await fetch('https://api-adresse.data.gouv.fr/search/?q=' + encodeURIComponent(q) + '&limit=1');
+    if (!r.ok) throw new Error(`BAN ${r.status}`);
+    const d = await r.json();
+    const f = d.features && d.features[0];
+    if (!f) throw new Error('Adresse non trouvée — essaie avec plus de précision');
+    p.lat = f.geometry.coordinates[1];
+    p.lng = f.geometry.coordinates[0];
+    if (!p.ville && f.properties.city) p.ville = f.properties.city;
+    if (!p.cp && f.properties.postcode) p.cp = f.properties.postcode;
+    saveProspects();
+    if (statusEl) statusEl.textContent = `✓ Géolocalisé (${p.lat.toFixed(4)}, ${p.lng.toFixed(4)})`;
+    if (statusEl) statusEl.style.color = 'var(--success)';
+    toast(`📍 Géolocalisé : ${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}`, 'success');
+    const dvfBtn = document.querySelector('button[onclick^="runDVFProximite"]');
+    if (!dvfBtn) { /* re-render vue section to show DVF button */
+      const vueSect = document.getElementById('ptab-vue');
+      if (vueSect) vueSect.innerHTML = `<div id="ptab-vue" style="display:block;">${renderBriefSection && typeof renderBriefSection === 'function' ? '' : ''}</div>`;
+    }
+  } catch(e) {
+    if (statusEl) { statusEl.textContent = `Erreur : ${e.message}`; statusEl.style.color = 'var(--danger)'; }
+    toast(`Géocodage : ${e.message}`, 'danger');
+  }
+}
+
+/* ==========================================================
+   MODULE DVF — Demandes de Valeurs Foncières (Cerema / data.gouv.fr)
+   Gratuit, CORS OK, sans auth
+   API  : apidf-preprod.cerema.fr/dvf_opendata/mutations/
+   ========================================================== */
+
+async function fetchDVF(opts = {}) {
+  // API DVF Cerema — nécessite code_insee (code commune 5 chiffres, ex: 57463 pour Metz)
+  // ou lat/lon pour les recherches de proximité géographique
+  const params = new URLSearchParams();
+  if (opts.lat && opts.lon) {
+    params.set('lat', opts.lat);
+    params.set('lon', opts.lon);
+    params.set('radius', opts.radius || 3000);
+  }
+  if (opts.codeInsee) params.set('code_insee', opts.codeInsee);
+  params.set('date_mutation_min', opts.dateMin || new Date(Date.now() - 365*24*3600*1000*2).toISOString().slice(0,10));
+  params.set('page_size', opts.limit || 20);
+  const r = await fetch(`https://apidf-preprod.cerema.fr/dvf_opendata/mutations/?${params}`);
+  if (!r.ok) throw new Error(`DVF ${r.status}`);
+  return r.json();
+}
+
+function renderDVFResultsTable(results, context) {
+  if (!results || !results.length) return '<div style="color:var(--muted);font-size:13px;font-style:italic;">Aucune transaction trouvée.</div>';
+  const rows = results.slice(0, 20).map(m => {
+    const adresse = [m.adresse_numero, m.adresse_nom_voie, m.code_postal, m.nom_commune].filter(Boolean).join(' ');
+    const prix = m.valeur_fonciere ? `${Math.round(m.valeur_fonciere/1000)} k€` : '—';
+    const surf = m.surface_reelle_bati ? `${m.surface_reelle_bati} m²` : '—';
+    const date = m.date_mutation ? new Date(m.date_mutation).toLocaleDateString('fr-FR') : '—';
+    const pièces = m.nombre_pieces_principales ? `${m.nombre_pieces_principales} p.` : '';
+    const onClick = context === 'sf'
+      ? `onclick="dvfCreateProspect(${JSON.stringify({ adresse, ville: m.nom_commune||'', cp: m.code_postal||'' }).replace(/"/g,'&quot;')})"` : '';
+    return `<tr>
+      <td style="padding:4px 6px;font-size:12px;">${escapeHtml(adresse)}</td>
+      <td style="padding:4px 6px;font-size:12px;">${surf} ${pièces}</td>
+      <td style="padding:4px 6px;font-size:12px;font-weight:600;">${prix}</td>
+      <td style="padding:4px 6px;font-size:12px;">${date}</td>
+      ${context === 'sf' ? `<td style="padding:4px 6px;"><button class="btn btn-sm" style="font-size:11px;padding:2px 8px;" ${onClick}>+ Prospect</button></td>` : ''}
+    </tr>`;
+  }).join('');
+  return `<table style="width:100%;border-collapse:collapse;margin-top:8px;">
+    <thead><tr style="border-bottom:1px solid var(--border-1);">
+      <th style="text-align:left;padding:4px 6px;font-size:11px;color:var(--muted);">Adresse</th>
+      <th style="text-align:left;padding:4px 6px;font-size:11px;color:var(--muted);">Surface</th>
+      <th style="text-align:left;padding:4px 6px;font-size:11px;color:var(--muted);">Prix</th>
+      <th style="text-align:left;padding:4px 6px;font-size:11px;color:var(--muted);">Vente</th>
+      ${context === 'sf' ? '<th style="padding:4px 6px;"></th>' : ''}
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function dvfCreateProspect(info) {
+  openNewProspect();
+  setTimeout(() => {
+    const fVille = document.getElementById('f_ville');
+    const fCp = document.getElementById('f_cp');
+    const fNotes = document.getElementById('f_notes');
+    if (fVille) fVille.value = info.ville || '';
+    if (fCp) fCp.value = info.cp || '';
+    if (fNotes) fNotes.value = `Adresse DVF : ${info.adresse}`;
+  }, 200);
+}
+
+async function runDVFProximite(lat, lng) {
+  const box = document.getElementById('dvfProxBox');
+  if (!box) return;
+  box.innerHTML = '<div class="ia-loader"><div class="ia-spinner"></div>Recherche DVF à proximité…</div>';
+  try {
+    const data = await fetchDVF({ lat, lon: lng, radius: 2000, limit: 10 });
+    const results = data.results || [];
+    const p = STATE.currentProspect;
+    if (p) {
+      p.dvfData = { date: new Date().toISOString(), count: results.length, lat, lng };
+      saveProspects();
+    }
+    box.innerHTML = `<div style="font-size:13px;margin-bottom:4px;"><strong>${results.length}</strong> vente${results.length !== 1 ? 's' : ''} de maison dans un rayon de 2 km</div>
+      ${renderDVFResultsTable(results, 'prospect')}`;
+  } catch(e) {
+    box.innerHTML = `<div class="alert danger">Erreur DVF : ${escapeHtml(e.message)}</div>`;
+  }
 }
 
 /* ==========================================================
@@ -12071,7 +12492,56 @@ function sf_computeSignals(p) {
     });
   }
 
-  // 6) BODACC (événements légaux datés)
+  // 6bis) Annuaire Entreprises — score risque + dirigeant
+  if (p.annuaireData) {
+    const score = computeRisqueScore(p);
+    if (score !== null && score <= 1) {
+      sig.push({ family: 'risque', sev: 'crit', icon: '🔴', label: 'Score risque élevé (Annuaire)', detail: `Score ${score}/5 — entreprise fermée, jeune ou avec procédures collectives` });
+    }
+    const annDirs = (p.annuaireData.dirigeants || []);
+    if (annDirs.length > 0 && p.contact_nom) {
+      const stored = p.contact_nom.toUpperCase().trim();
+      const found = annDirs.some(d => d.nom && stored.includes(d.nom.toUpperCase()));
+      if (!found) {
+        sig.push({ family: 'info', sev: 'medium', icon: '🔄', label: 'Dirigeant différent (Annuaire)', detail: `Le contact enregistré (${p.contact_nom}) ne correspond pas aux dirigeants de l'Annuaire — vérifier avant contact` });
+      }
+    }
+  }
+
+  // 6ter) DVF — ventes récentes à proximité
+  if (p.dvfData && p.dvfData.count > 0) {
+    const dvfAge = p.dvfData.date ? (Date.now() - new Date(p.dvfData.date)) / (1000*60*60*24*30) : 999;
+    if (dvfAge < 12) {
+      const sev = dvfAge < 3 ? 'high' : 'medium';
+      sig.push({ family: 'opportunite', sev, icon: '🏠', label: `${p.dvfData.count} vente${p.dvfData.count > 1 ? 's' : ''} récente${p.dvfData.count > 1 ? 's' : ''} dans la zone`, detail: 'Propriétaires récents = leads fenêtres/portes dans les 6-24 mois (données DVF)' });
+    }
+  }
+
+  // 6quat) Pappers — score risque + CA
+  if (p.pappersData) {
+    const scoreRisque = p.pappersData.score_popularite || p.pappersData.score_financier || null;
+    if (scoreRisque !== null && scoreRisque < 40) {
+      sig.push({ family: 'risque', sev: 'crit', icon: '🔴', label: `Score risque élevé Pappers (${scoreRisque}/100)`, detail: 'Entreprise à risque élevé selon Pappers — prudence avant prospection active' });
+    } else if (scoreRisque !== null && scoreRisque < 70) {
+      sig.push({ family: 'risque', sev: 'high', icon: '🟠', label: `Score risque modéré Pappers (${scoreRisque}/100)`, detail: 'Score Pappers modéré — vérifier la solidité financière avant proposition' });
+    }
+    const finances = p.pappersData.finances || [];
+    if (finances.length >= 2) {
+      const ca = finances[0].chiffre_affaires || finances[0].ca || null;
+      const ca1 = finances[1].chiffre_affaires || finances[1].ca || null;
+      if (ca && ca1) {
+        const evol = Math.round(((ca - ca1) / ca1) * 100);
+        if (evol >= 15) sig.push({ family: 'croissance', sev: 'med', icon: '📈', label: `CA en hausse +${evol}% (Pappers)`, detail: `${(ca/1000).toFixed(0)} k€ vs ${(ca1/1000).toFixed(0)} k€ N-1`, stale: false });
+        else if (evol <= -15) sig.push({ family: 'risque', sev: 'high', icon: '📉', label: `CA en baisse ${evol}% (Pappers)`, detail: `${(ca/1000).toFixed(0)} k€ vs ${(ca1/1000).toFixed(0)} k€ N-1`, stale: false });
+      }
+    }
+    const etat = p.pappersData.statut || p.pappersData.etat_administratif || '';
+    if (/ferme|cesse|radié|inactif/i.test(etat)) {
+      sig.push({ family: 'risque', sev: 'crit', icon: '⛔', label: `Entreprise ${escapeHtml(etat)} (Pappers)`, detail: 'Vérifier avant tout contact commercial' });
+    }
+  }
+
+  // 7) BODACC (événements légaux datés)
   if (p.bodaccData && p.bodaccData.annonces) {
     const map = {
       creation: { family: 'croissance', icon: '✨', label: 'Immatriculation récente' },
@@ -12231,6 +12701,23 @@ async function sf_scan() {
   sf_render();
 }
 
+
+async function sf_runDVFSearch() {
+  const dept = (document.getElementById('dvf_dept')?.value || '').trim();
+  const dateMin = document.getElementById('dvf_dateMin')?.value || '';
+  const box = document.getElementById('dvf_sf_results');
+  if (!box) return;
+  if (!dept) { toast('Entrez un code département (ex: 57)', 'warning'); return; }
+  box.innerHTML = '<div class="ia-loader"><div class="ia-spinner"></div>Interrogation DVF Cerema…</div>';
+  try {
+    const data = await fetchDVF({ dept, dateMin: dateMin || undefined, limit: 20 });
+    const results = data.results || [];
+    box.innerHTML = `<div style="font-size:13px;margin-bottom:6px;"><strong>${data.count !== undefined ? data.count : results.length}</strong> transaction(s) trouvée(s) ${dept ? `dans le dépt <strong>${dept}</strong>` : ''} — affichage des ${Math.min(results.length, 20)} premières</div>
+      ${renderDVFResultsTable(results, 'sf')}`;
+  } catch(e) {
+    box.innerHTML = `<div class="alert danger">Erreur DVF : ${escapeHtml(e.message)}</div>`;
+  }
+}
 
 /* ==========================================================
    MODULE SUIVI — Tableaux de pilotage (100% données réelles)
@@ -12517,6 +13004,48 @@ function renderConnFreeSources() {
         <button class="btn btn-ghost btn-sm" onclick="testConnSource('rge')">Tester</button>
       </div>
     </div>
+
+    <div class="conn-card active">
+      <div class="conn-icon">🏢</div>
+      <div>
+        <div class="conn-info-title">Annuaire des Entreprises (data.gouv.fr)</div>
+        <div class="conn-info-meta">
+          <strong>recherche-entreprises.api.gouv.fr</strong> · Dirigeants, effectif, NAF, catégorie, date création<br>
+          Utilisée par : <strong>bouton 🏢 Annuaire</strong> sur chaque fiche prospect · Score de risque automatique
+        </div>
+      </div>
+      <div class="conn-actions">
+        <span class="conn-status active">🟢 Actif</span>
+      </div>
+    </div>
+
+    <div class="conn-card active">
+      <div class="conn-icon">🏠</div>
+      <div>
+        <div class="conn-info-title">DVF · Transactions foncières</div>
+        <div class="conn-info-meta">
+          <strong>apidf-preprod.cerema.fr</strong> (data.gouv.fr / Cerema) · Maisons vendues récemment dans une zone<br>
+          Utilisée par : <strong>Signaux Faibles → Nouveaux propriétaires</strong> · DVF à proximité sur fiche géolocalisée
+        </div>
+      </div>
+      <div class="conn-actions">
+        <span class="conn-status active">🟢 Actif</span>
+      </div>
+    </div>
+
+    <div class="conn-card active">
+      <div class="conn-icon">📍</div>
+      <div>
+        <div class="conn-info-title">BAN · Géocodage adresses</div>
+        <div class="conn-info-meta">
+          <strong>api-adresse.data.gouv.fr</strong> · Coordonnées GPS précises des prospects<br>
+          Utilisée par : <strong>Carte · Tournées · DVF à proximité</strong> · Auto-géocodage à la sauvegarde fiche
+        </div>
+      </div>
+      <div class="conn-actions">
+        <span class="conn-status active">🟢 Actif</span>
+      </div>
+    </div>
   `;
 }
 
@@ -12545,19 +13074,23 @@ function renderConnFinance() {
       <div class="conn-actions">${inpiStatus}</div>
     </div>
 
-    <div class="conn-card premium">
+    <div class="conn-card ${pappersConfigured() ? 'active' : 'partial'}">
       <div class="conn-icon">📊</div>
       <div>
-        <div class="conn-info-title">Pappers API · Premium</div>
+        <div class="conn-info-title">Pappers · Enrichissement SIREN</div>
         <div class="conn-info-meta">
-          <strong>pappers.fr</strong> · Bilans complets + alertes temps réel<br>
-          Alternative payante à INPI · ⚡ Plus complet, mises à jour quotidiennes<br>
-          💰 <strong>75€/mois</strong> (forfait Indépendant) · 240€/mois (Pro)
+          <strong>api.pappers.fr</strong> · Dirigeants, CA, score risque, forme juridique<br>
+          💰 <strong>Gratuit</strong> jusqu'à 100 req/j sans token · Token optionnel pour quota élevé<br>
+          ${pappersConfigured() ? 'Token configuré — quota étendu actif' : 'Fonctionne sans token · <a href="https://www.pappers.fr/api" target="_blank" style="color:var(--link);">Token gratuit sur pappers.fr</a> pour lever la limite'}
+        </div>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <input id="pappersTokenInput" type="password" placeholder="Token Pappers (optionnel)" style="flex:1;min-width:180px;padding:5px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:12px;background:var(--surface-0);" value="${escapeHtml(STATE.pappersToken||'')}">
+          <button class="btn btn-sm" style="background:#E65C00;color:white;border-color:#E65C00;white-space:nowrap;" onclick="savePappersConfig(document.getElementById('pappersTokenInput').value)">${pappersConfigured() ? 'Mettre à jour' : 'Enregistrer'}</button>
+          ${pappersConfigured() ? `<button class="btn btn-ghost btn-sm" onclick="STATE.pappersToken='';saveKey('pappers_token','');renderConnections();toast('Pappers déconnecté')">Effacer</button>` : ''}
         </div>
       </div>
       <div class="conn-actions">
-        <span class="conn-status premium">💼 Premium</span>
-        <button class="btn btn-ghost btn-sm" disabled>À activer si abonnement</button>
+        <span class="conn-status ${pappersConfigured() ? 'active' : 'partial'}">${pappersConfigured() ? '🟢 Token actif' : '🟡 Sans token (100 req/j)'}</span>
       </div>
     </div>
   `;
@@ -13148,6 +13681,7 @@ function showWhatsNew() {
     { icon: '⚡', title: 'Signaux faibles', desc: 'Détection automatique : création récente, déménagement, procédure collective, croissance CA — alertes sur chaque fiche.' },
     { icon: '👤', title: 'Fiche client redessinée', desc: 'Sections segmentées, remises visibles, distinction visuelle prospect / client actif.' },
     { icon: '💰', title: 'Remises sur la fiche', desc: 'Affichage des remises accordées directement sur la fiche client pour un suivi immédiat.' },
+    { icon: '🚨', title: 'Score ajusté BODACC', desc: 'Le score affiché tient maintenant compte des procédures collectives et alertes BODACC — un prospect en liquidation ne peut plus afficher 79/100.' },
   ];
   const items = news.map(n => `
     <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f0f0f0;">
