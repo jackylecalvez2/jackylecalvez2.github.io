@@ -4052,6 +4052,228 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--sans) !important; }
   border: none !important;
 }
 </style>
+<style id="bee-honeycomb-theme">
+/* ============================================================
+   THÈME RUCHE PREMIUM — BeetoB v4.15.0
+   Théo UI/UX · identité abeille / nid d'abeilles
+   Base bleu marine FPEE (charte) + accent MIEL signature (~70/30)
+   Surcharge propre par-dessus #command-center-2027. Aucune ligne
+   existante modifiée — ce bloc s'ajoute APRÈS les styles en place.
+   ============================================================ */
+
+:root {
+  /* Miel / or de l'abeille (extrait de l'image de référence) */
+  --bee-honey:        #FAAA0A;
+  --bee-amber:        #E6820A;
+  --bee-honey-soft:   #E9B65A;
+  --bee-cream:        #E6D2AA;
+  --bee-frost:        #B6D2EE;
+
+  /* Dégradé miel signature */
+  --bee-grad-honey: linear-gradient(135deg, #FAAA0A 0%, #E6820A 100%);
+  --bee-grad-honey-soft: linear-gradient(135deg, #E9B65A 0%, #FAAA0A 100%);
+
+  /* Nid d'abeilles SVG (Hero Patterns « Hexagons », tileable 28×49). */
+  --bee-hex-honey:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill='%23FAAA0A' fill-opacity='0.07' fill-rule='evenodd'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l11 6.35 11-6.35V17.9l-11-6.35L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/g%3E%3C/svg%3E");
+  --bee-hex-honey-faint: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill='%23FAAA0A' fill-opacity='0.045' fill-rule='evenodd'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l11 6.35 11-6.35V17.9l-11-6.35L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/g%3E%3C/svg%3E");
+  --bee-hex-frost:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill='%23B6D2EE' fill-opacity='0.06' fill-rule='evenodd'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l11 6.35 11-6.35V17.9l-11-6.35L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/g%3E%3C/svg%3E");
+  --bee-hex-navy:   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill='%230E2A46' fill-opacity='0.05' fill-rule='evenodd'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l11 6.35 11-6.35V17.9l-11-6.35L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/g%3E%3C/svg%3E");
+
+  /* Petit hexagone plein miel pour les accents d'angle (KPI). */
+  --bee-hex-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='24' viewBox='0 0 22 24'%3E%3Cpath d='M11 0l9.53 5.5v11L11 22l-9.53-5.5v-11z' fill='%23FAAA0A'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
+   1. SIDEBAR — texture nid d'abeilles miel par-dessus le navy
+   ============================================================ */
+.sidebar {
+  background-image: var(--bee-hex-honey), var(--sidebar-bg) !important;
+  background-repeat: repeat, no-repeat !important;
+  background-size: 28px 49px, cover !important;
+  background-position: 0 0, center !important;
+}
+
+/* Liseré miel signature sous le bloc marque */
+.sidebar-brand {
+  box-shadow: inset 0 -1px 0 rgba(250,170,10,0.18) !important;
+}
+.sidebar-brand-text strong {
+  background: var(--bee-grad-honey-soft);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.sidebar-brand-text small { color: rgba(233,182,90,0.78) !important; }
+
+/* ============================================================
+   2. NAV — item actif : liseré miel vif + halo chaud
+   ============================================================ */
+.nav-tab.active::before {
+  background: var(--bee-grad-honey) !important;
+  width: 3px !important;
+  box-shadow: 0 0 10px rgba(250,170,10,0.55) !important;
+  border-radius: 0 3px 3px 0 !important;
+}
+.nav-tab.active {
+  background: linear-gradient(90deg, rgba(250,170,10,0.10) 0%, rgba(250,170,10,0.02) 60%, transparent 100%) !important;
+  box-shadow: inset 0 0 0 1px rgba(250,170,10,0.14) !important;
+}
+.nav-tab:hover { box-shadow: inset 0 0 0 1px rgba(250,170,10,0.10); }
+
+/* Pastille de comptage : miel vif + texte navy lisible */
+.nav-tab .count {
+  background: var(--bee-grad-honey) !important;
+  color: #0E2A46 !important;
+  box-shadow: 0 2px 8px rgba(250,170,10,0.45) !important;
+}
+
+/* Statut API connecté : pulse miel vif */
+.api-status.connected .dot { background: var(--bee-honey) !important; }
+
+/* ============================================================
+   3. HERO DASHBOARD — voile nid d'abeilles + chaleur miel
+   ============================================================ */
+.hero {
+  background-image:
+    var(--bee-hex-honey-faint),
+    linear-gradient(160deg, #050D1A 0%, #0A1628 55%, #0D2144 100%) !important;
+  background-repeat: repeat, no-repeat !important;
+  background-size: 28px 49px, cover !important;
+}
+/* Glow miel doux en bas à droite du hero (sans masquer le shimmer cyan du ::before) */
+.hero::after {
+  content: '' !important;
+  opacity: 1 !important;
+  position: absolute !important;
+  right: -40px !important;
+  bottom: -60px !important;
+  width: 260px !important;
+  height: 260px !important;
+  background: radial-gradient(circle, rgba(250,170,10,0.16) 0%, transparent 62%) !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+/* ============================================================
+   4. EN-TÊTES DE SECTION — fines textures hexagonales
+   (cible les conteneurs de titre courants du dashboard)
+   ============================================================ */
+.section-header, .panel-header, .card-header, .block-header,
+.section-head, .module-header {
+  background-image: var(--bee-hex-navy) !important;
+  background-repeat: repeat !important;
+  background-size: 28px 49px !important;
+}
+[data-theme="dark"] .section-header,
+[data-theme="dark"] .panel-header,
+[data-theme="dark"] .card-header,
+[data-theme="dark"] .block-header,
+[data-theme="dark"] .section-head,
+[data-theme="dark"] .module-header {
+  background-image: var(--bee-hex-honey-faint) !important;
+}
+
+/* ============================================================
+   5. KPI CARDS — accent hexagone miel d'angle + glow ruche
+   ============================================================ */
+.kpi-card { position: relative; overflow: hidden; }
+
+/* Hexagone miel discret en coin haut-droit (toutes les cartes) */
+.kpi-card::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 10px !important;
+  right: 12px !important;
+  width: 14px !important;
+  height: 15px !important;
+  background: var(--bee-hex-mark) center/contain no-repeat !important;
+  opacity: 0.16 !important;
+  z-index: 1 !important;
+  transition: opacity var(--t-base), transform var(--t-base) !important;
+  pointer-events: none !important;
+}
+.kpi-card:hover::after { opacity: 0.5 !important; transform: scale(1.12); }
+
+/* Carte « gold/accent » : hexagone plus présent + glow miel renforcé */
+.kpi-card.gold::after { opacity: 0.42 !important; }
+.kpi-card.gold {
+  border-color: rgba(250,170,10,0.30) !important;
+}
+.kpi-card.gold:hover {
+  border-color: rgba(250,170,10,0.55) !important;
+  box-shadow: 0 0 0 1px rgba(250,170,10,0.30), 0 10px 34px rgba(250,170,10,0.16) !important;
+}
+
+/* ============================================================
+   6. ACCENTS MIEL transverses — badges, puces, focus chaud
+   ============================================================ */
+/* Badge warning / gold : passe au miel vif de l'abeille */
+.badge-modern.warning {
+  background: rgba(250,170,10,0.16) !important;
+  color: var(--bee-amber) !important;
+}
+[data-theme="dark"] .badge-modern.warning { color: var(--bee-honey-soft) !important; }
+
+/* Bouton « C'est parti » de la modale nouveautés : liseré miel */
+#whatsNewModal button {
+  box-shadow: inset 0 0 0 1px rgba(250,170,10,0.0);
+}
+
+/* ============================================================
+   7. ÉCRAN DE CONNEXION — image de marque (abeille + ruche)
+   #beetobLogin est généré en JS avec styles inline : on surcharge
+   en CSS via !important (aucune touche au JS).
+   ============================================================ */
+#beetobLogin {
+  background:
+    linear-gradient(rgba(11,41,73,0.82), rgba(11,41,73,0.86)),
+    url("assets/bee-hero.png") center / cover no-repeat !important;
+}
+/* Voile nid d'abeilles miel par-dessus la photo */
+#beetobLogin::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--bee-hex-honey);
+  background-size: 34px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+/* Carte de connexion : verre premium, liseré miel, hexagones discrets */
+#beetobLogin > div {
+  position: relative !important;
+  z-index: 1 !important;
+  background:
+    var(--bee-hex-navy),
+    linear-gradient(180deg, #ffffff 0%, #fbf6ec 100%) !important;
+  background-size: 28px 49px, cover !important;
+  border-top: 4px solid transparent !important;
+  border-image: var(--bee-grad-honey) 1 !important;
+  box-shadow:
+    0 0 0 1px rgba(250,170,10,0.18),
+    0 24px 70px rgba(11,41,73,0.55) !important;
+}
+/* Titre BeetoB de l'écran login : gradient miel signature */
+#beetobLogin > div > div:first-child {
+  background: var(--bee-grad-honey) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+/* ============================================================
+   8. MODE SOMBRE — le miel ressort fort sur le navy quasi-noir
+   ============================================================ */
+[data-theme="dark"] .sidebar {
+  background-image: var(--bee-hex-honey), var(--sidebar-bg) !important;
+}
+[data-theme="dark"] .kpi-card.gold {
+  border-color: rgba(250,170,10,0.38) !important;
+}
+[data-theme="dark"] .nav-tab.active {
+  background: linear-gradient(90deg, rgba(250,170,10,0.16) 0%, rgba(250,170,10,0.03) 60%, transparent 100%) !important;
+}
+</style>
 </head>
 <body>
 
@@ -4208,7 +4430,7 @@ window.addEventListener('unhandledrejection', function(e) {
       </div>
       <div class="sidebar-brand-text">
         <strong>BeetoB</strong>
-        <small>FPEE · Réseau · v4.14.0</small>
+        <small>FPEE · Réseau · v4.15.0</small>
       </div>
     </div>
 
