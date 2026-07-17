@@ -693,6 +693,12 @@ async function runOne(extra){
   }
   throw new Error("temps dépassé");
 }
+function showToast(msg, ms=3500){
+  let t=document.getElementById("__toast__");
+  if(!t){t=document.createElement("div");t.id="__toast__";t.style.cssText="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#1c1b1b;border:1px solid var(--af-vert);color:var(--txt);padding:11px 18px;border-radius:10px;font-size:13px;font-weight:700;z-index:999;pointer-events:none;transition:opacity .3s";document.body.appendChild(t);}
+  t.textContent=msg; t.style.opacity="1";
+  clearTimeout(t._tid); t._tid=setTimeout(()=>{t.style.opacity="0";},ms);
+}
 async function generate(extra){
   if(!extra) await runDetect();   // détection AUTO avant rendu : produit (photo) + couleur/modèle depuis le texte (scène)
   const grid=$("#vargrid"); $("#redo").classList.remove("show");
