@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Configurateur — Art &amp; Fenêtres</title>
+<style>
+:root{
+  --af-charbon:#1c1b1b; --af-charbon-2:#232222; --af-charbon-3:#2c2b2a;
+  --af-vert:#B6D23D; --af-vert-d:#8FA52E; --af-vert-soft:rgba(182,210,61,.14);
+  --af-fond:#141313; --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.16);
+  --txt:#f4f4f2; --txt-2:#b9b7b3; --txt-3:#87857f; --radius:14px;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--af-fond);color:var(--txt);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+.app{height:100dvh;display:flex;flex-direction:column;padding:10px;gap:10px}
+/* header compact */
+.head{display:flex;align-items:center;gap:12px;flex:none}
+.logo{display:flex;align-items:center;gap:9px;font-weight:800}
+.logo .mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--af-vert),var(--af-vert-d));display:grid;place-items:center;color:#1c1b1b}
+.logo small{display:block;font-size:9.5px;font-weight:600;color:var(--txt-3);letter-spacing:2px;text-transform:uppercase}
+.head .sp{flex:1}
+.head .tag{font-size:10.5px;font-weight:700;color:var(--txt-2);border:1px solid var(--line-2);border-radius:100px;padding:4px 11px}
+/* body : 2 colonnes qui remplissent la hauteur restante */
+.body{flex:1;display:grid;grid-template-columns:370px 1fr;gap:12px;min-height:0}
+.ctrl{background:var(--af-charbon-2);border:1px solid var(--line);border-radius:var(--radius);padding:16px;overflow-y:auto;min-height:0}
+.ctrl::-webkit-scrollbar{width:8px}.ctrl::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:8px}
+label.f{display:block;font-size:10.5px;font-weight:700;color:var(--txt-3);text-transform:uppercase;letter-spacing:.5px;margin:13px 0 5px}
+label.f:first-child{margin-top:0}
+select,input[type=text],textarea{width:100%;background:var(--af-charbon-3);border:1px solid var(--line-2);border-radius:9px;color:var(--txt);font:inherit;font-size:13.5px;padding:10px 11px}
+textarea{min-height:70px;resize:vertical;line-height:1.45}
+select:focus,input:focus,textarea:focus{outline:none;border-color:var(--af-vert)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.seg{display:flex;gap:6px;background:var(--af-charbon-3);border-radius:10px;padding:4px;margin-top:2px}
+.seg button{flex:1;background:none;border:0;color:var(--txt-2);font:inherit;font-weight:700;font-size:12.5px;padding:8px;border-radius:7px;cursor:pointer}
+.seg button.on{background:var(--af-vert);color:#1a1a1a}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.chip{font-size:11.5px;font-weight:600;color:var(--txt-2);background:var(--af-charbon-3);border:1px solid var(--line-2);border-radius:100px;padding:5px 10px;cursor:pointer;transition:.12s}
+.chip:hover{border-color:var(--af-vert)}
+.chip.on{background:var(--af-vert-soft);border-color:var(--af-vert);color:var(--af-vert)}
+/* sélecteur visuel de modèles */
+.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:6px}
+.mcell{position:relative;border:1.5px solid var(--line-2);border-radius:10px;overflow:hidden;cursor:pointer;background:var(--af-charbon-3);transition:.12s}
+.mcell:hover{border-color:var(--af-vert)}
+.mcell.on{border-color:var(--af-vert);box-shadow:0 0 0 1px var(--af-vert) inset}
+.mcell img{width:100%;aspect-ratio:1/1.3;object-fit:contain;display:block;background:#f4f3f1}
+.mcell .nm{font-size:10px;font-weight:700;color:var(--txt);padding:4px 5px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mcell .bdg{position:absolute;top:4px;right:4px;width:15px;height:15px;border-radius:50%;display:grid;place-items:center;font-size:9px;font-weight:800;background:rgba(20,19,19,.82)}
+.mcell .bdg.reel{color:var(--af-vert)} .mcell .bdg.ia{color:var(--txt-3)}
+/* pastilles couleur RAL */
+.swatches{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.sw{width:30px;height:30px;border-radius:50%;border:2px solid var(--line-2);cursor:pointer;transition:.12s}
+.sw:hover{transform:scale(1.09)} .sw.on{border-color:var(--af-vert);box-shadow:0 0 0 2px var(--af-vert)}
+.sw.origin{display:grid;place-items:center;font-size:15px;color:var(--txt-2);background:var(--af-charbon-3)}
+.chip-lab{font-size:9.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--txt-3);margin:12px 0 2px}
+.drop{border:1.5px dashed var(--line-2);border-radius:11px;padding:16px;text-align:center;cursor:pointer;background:var(--af-charbon-3);min-height:92px;display:grid;place-items:center;overflow:hidden}
+.drop:hover,.drop.over{border-color:var(--af-vert);background:var(--af-vert-soft)}
+.drop .dt{font-size:12.5px;font-weight:700;margin-top:6px}.drop .ds{font-size:11px;color:var(--txt-3)}
+.drop img{width:100%;border-radius:8px;display:block}
+details{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+summary{cursor:pointer;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--txt-3);list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"▸ ";color:var(--af-vert)}details[open] summary::before{content:"▾ "}
+.gowrap{position:sticky;bottom:-16px;background:linear-gradient(0deg,var(--af-charbon-2) 72%,transparent);padding:10px 0 2px;margin-top:14px}
+.go{width:100%;background:linear-gradient(135deg,var(--af-vert),var(--af-vert-d));color:#1a1a1a;border:0;border-radius:11px;padding:13px;font-size:14.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+.go:hover{filter:brightness(1.05)}.go:disabled{opacity:.5;cursor:default}
+.hint{font-size:11px;color:var(--txt-3);margin-top:7px;text-align:center}
+.detectbtn{width:100%;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--af-charbon-3);color:var(--af-vert);border:1px solid var(--af-vert);border-radius:9px;padding:9px;font:inherit;font-weight:700;font-size:12.5px;cursor:pointer}
+.detectbtn:hover{background:var(--af-vert-soft)}.detectbtn:disabled{opacity:.5;cursor:default}
+/* stage */
+.stage{background:var(--af-charbon);border:1px solid var(--line);border-radius:var(--radius);position:relative;overflow:hidden;display:grid;place-items:center;min-height:0}
+.stage>img#result{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--af-charbon)}
+.empty{text-align:center;color:var(--txt-3);padding:24px}
+.empty .big{width:58px;height:58px;border-radius:15px;background:var(--af-charbon-3);display:grid;place-items:center;margin:0 auto 12px}
+.empty h4{margin:0 0 4px;color:var(--txt-2);font-size:15px}.empty p{margin:0;font-size:13px;max-width:340px}
+.loading{position:absolute;inset:0;display:none;place-items:center;background:rgba(20,19,19,.72);backdrop-filter:blur(3px);z-index:4}
+.loading.on{display:grid}
+.spin{width:42px;height:42px;border:3px solid var(--line-2);border-top-color:var(--af-vert);border-radius:50%;animation:sp 1s linear infinite;margin:0 auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+.loading .t{margin-top:12px;color:var(--txt-2);font-size:13px;font-weight:600;text-align:center}
+.redo{position:absolute;top:12px;right:12px;z-index:5;display:none;align-items:center;gap:7px;background:rgba(28,27,27,.9);border:1px solid var(--line-2);color:var(--txt);border-radius:10px;padding:9px 13px;font:inherit;font-weight:700;font-size:12.5px;cursor:pointer;backdrop-filter:blur(4px)}
+.redo:hover{border-color:var(--af-vert);color:var(--af-vert)}
+.redo.show{display:inline-flex}
+/* bouton plein écran (sur le rendu) */
+.fsbtn{position:absolute;top:12px;left:12px;z-index:5;display:none;align-items:center;gap:6px;background:rgba(28,27,27,.9);border:1px solid var(--line-2);color:var(--txt);border-radius:10px;padding:9px 12px;font:inherit;font-weight:700;font-size:12.5px;cursor:pointer;backdrop-filter:blur(4px)}
+.fsbtn:hover{border-color:var(--af-vert);color:var(--af-vert)}
+.fsbtn.show{display:inline-flex}
+/* bouton partage (natif iPhone : WhatsApp/Mail/SMS) */
+.shbtn{position:absolute;top:56px;left:12px;z-index:5;display:none;align-items:center;gap:6px;background:rgba(28,27,27,.9);border:1px solid var(--line-2);color:var(--txt);border-radius:10px;padding:9px 12px;font:inherit;font-weight:700;font-size:12.5px;cursor:pointer;backdrop-filter:blur(4px)}
+.shbtn:hover{border-color:var(--af-vert);color:var(--af-vert)}
+.shbtn.show{display:inline-flex}
+/* galerie de session : les derniers rendus, cliquables */
+#histo{position:absolute;bottom:12px;left:12px;right:12px;z-index:5;display:none;gap:7px;overflow-x:auto;padding:7px;background:rgba(20,19,19,.78);border:1px solid var(--line-2);border-radius:11px;backdrop-filter:blur(4px)}
+#histo.show{display:flex}
+#histo img{height:56px;border-radius:6px;cursor:pointer;border:2px solid transparent;flex:0 0 auto}
+#histo img:hover{border-color:var(--txt-3)}
+#histo img.on{border-color:var(--af-vert)}
+.stage>img#result{cursor:zoom-in}
+/* lightbox plein écran */
+.lb{position:fixed;inset:0;z-index:9999;background:rgba(8,8,9,.95);display:none;place-items:center;padding:14px;backdrop-filter:blur(2px)}
+.lb.on{display:grid}
+.lb img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;cursor:zoom-out;touch-action:pinch-zoom}
+.lb .x{position:absolute;top:14px;right:16px;width:44px;height:44px;border-radius:50%;background:rgba(28,27,27,.92);border:1px solid var(--line-2);color:var(--txt);font-size:22px;line-height:1;cursor:pointer;display:grid;place-items:center;z-index:2}
+.lb .x:hover{border-color:var(--af-vert);color:var(--af-vert)}
+.lb .dl{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);background:var(--af-vert);color:#141313;border:none;border-radius:10px;padding:11px 18px;font:inherit;font-weight:800;font-size:13px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:7px}
+.vargrid{position:absolute;left:0;right:0;bottom:0;display:flex;gap:8px;padding:10px;justify-content:center;background:linear-gradient(0deg,rgba(20,19,19,.92),transparent);z-index:5}
+.vargrid .v{width:82px;height:82px;border-radius:9px;border:2px solid var(--line-2);cursor:pointer;overflow:hidden;flex:none;display:grid;place-items:center;background:var(--af-charbon-3)}
+.vargrid .v.sel{border-color:var(--af-vert)}.vargrid .v img{width:100%;height:100%;object-fit:cover}
+.vargrid .v .mini{width:18px;height:18px;border:2px solid var(--line-2);border-top-color:var(--af-vert);border-radius:50%;animation:sp 1s linear infinite}
+.ico{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ico-sm{width:17px;height:17px}
+.hide{display:none!important}
+@media(max-width:900px){
+  .app{height:auto;min-height:100dvh}
+  .body{grid-template-columns:1fr;min-height:0}
+  .stage{min-height:56vh;order:-1}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="head">
+    <div class="logo"><span class="mark"><svg class="ico" viewBox="0 0 24 24" style="stroke:#1c1b1b"><path d="M3 9l9-6 9 6v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 21V12h6v9"/></svg></span>
+      <div>Configurateur<small>Art &amp; Fenêtres</small></div></div>
+    <div class="sp"></div>
+    <span class="tag" id="usage" title="Conso IA du jour (garde-fou budget)"></span>
+    <span class="tag" title="Version de l'interface">v · Portails 12/07</span>
+    <span class="tag">Rendu IA 2K</span>
+  </div>
+
+  <div class="body">
+    <!-- CONTROLES -->
+    <div class="ctrl">
+      <div class="seg" id="tabs" style="margin-bottom:12px">
+        <button data-tab="config" class="on">Configuration</button>
+        <button data-tab="params">Paramètres</button>
+      </div>
+      <div id="tab-config">
+      <label class="f">Catégorie</label>
+      <div class="seg" id="famille">
+        <button data-fam="porte" class="on">Portes</button>
+        <button data-fam="portail">Portails</button>
+        <button data-fam="fenetre">Fenêtres</button>
+      </div>
+      <label class="f">Gamme</label>
+      <select id="gamme"></select>
+      <label class="f">Modèle</label>
+      <select id="model" class="hide"></select>
+      <div class="mgrid" id="model-grid"></div>
+      <div id="model-hint" style="font-size:11px;margin:5px 0 0;line-height:1.35"></div>
+      <button type="button" id="arbtn" class="hide" style="margin-top:8px;width:100%;background:var(--af-charbon-3);border:1.5px solid var(--af-vert);color:var(--af-vert);border-radius:10px;padding:10px;font:inherit;font-weight:800;font-size:13px;cursor:pointer">📱 Voir en AR — taille réelle chez le client</button>
+      <label class="f">Couleur</label>
+      <select id="color" class="hide"></select>
+      <div class="swatches" id="color-sw"></div>
+      <details>
+        <summary>Détails (dimensions &amp; options)</summary>
+        <div class="row2" style="margin-top:10px">
+          <div><label class="f" style="margin-top:0">Largeur (mm)</label><input id="larg" type="text" inputmode="numeric" value="900"></div>
+          <div><label class="f" style="margin-top:0">Hauteur (mm)</label><input id="haut" type="text" inputmode="numeric" value="2150"></div>
+        </div>
+        <div id="porte-opts">
+          <label class="f">Vitrage</label>
+          <select id="glaz"><option>Selon modèle</option><option>Vitrage dépoli</option><option>Vitrage clair</option><option>Vitrage décoratif</option><option>Sans vitrage</option></select>
+          <label class="f">Poignée</label>
+          <select id="handle"><option>Selon modèle</option><option>Barre inox</option><option>Béquille noire</option><option>Poignée design</option></select>
+          <label class="f">Imposte (au-dessus)</label>
+          <select id="p-imposte"><option value="">Sans</option><option value="avec une imposte vitrée au-dessus">Imposte vitrée</option><option value="avec une imposte pleine au-dessus">Imposte pleine</option></select>
+          <label class="f">Panneau latéral (tierce)</label>
+          <select id="p-tierce"><option value="">Sans</option><option value="avec un panneau latéral (tierce) vitré à droite">Tierce vitrée (droite)</option><option value="avec un panneau latéral (tierce) vitré à gauche">Tierce vitrée (gauche)</option><option value="avec un panneau latéral (tierce) plein à droite">Tierce pleine (droite)</option></select>
+          <label class="f">Insert décoratif</label>
+          <select id="p-insert"><option value="">Sans</option><option value="avec des inserts décoratifs en inox brossé">Inserts inox</option><option value="avec des petits bois décoratifs">Petits bois</option></select>
+        </div>
+        <div id="portail-opts" class="hide">
+          <label class="f">Forme du haut</label>
+          <select id="p-forme">
+            <option value="à sommet droit">Droit</option>
+            <option value="à chapeau de gendarme (sommet cintré convexe, plus haut au centre)">Chapeau de gendarme</option>
+            <option value="à chapeau de gendarme inversé (sommet concave, plus bas au centre)">Chapeau de gendarme inversé</option>
+            <option value="à sommet bombé (légèrement arrondi)">Bombé</option>
+            <option value="à sommet en biais (pente d'un seul côté)">Biais / pente</option>
+          </select>
+          <label class="f">Remplissage</label>
+          <select id="p-rempl">
+            <option value="à lames pleines horizontales">Plein · lames horizontales</option>
+            <option value="à lames pleines verticales">Plein · lames verticales</option>
+            <option value="semi-ajouré (bas plein en lames, haut barreaudé)">Semi-ajouré</option>
+            <option value="ajouré à barreaux verticaux">Ajouré · barreaudé</option>
+          </select>
+          <label class="f">Décor / options</label>
+          <div id="p-decor">
+            <span class="chip" data-d="avec palmettes en fer forgé">Palmettes</span>
+            <span class="chip" data-d="avec pointes de finition sur le dessus">Pointes</span>
+            <span class="chip" data-d="avec barreaudage décoratif">Barreaudage déco</span>
+            <span class="chip" data-d="avec tôle découpée décorative (découpe laser)">Tôle découpée</span>
+          </div>
+        </div>
+      </details>
+
+
+      <label class="f">Contexte du rendu</label>
+      <div class="hint" style="text-align:left;margin:-1px 0 8px;color:var(--txt-3)">Sans photo → l'IA crée la scène. Avec une photo de façade → votre menuiserie posée dessus.</div>
+
+      <!-- zone photo optionnelle : sa présence bascule le mode -->
+      <div class="drop" id="drop"><input type="file" id="file" accept="image/*" hidden>
+        <div id="dropinner"><svg class="ico" viewBox="0 0 24 24" style="width:24px;height:24px;color:var(--af-vert)"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          <div class="dt">Ajouter une photo de façade</div><div class="ds">optionnel · jpg / png</div></div>
+        <img id="preview" class="hide"></div>
+      <button type="button" id="photo-clear" class="hide" style="margin-top:7px;width:100%;background:var(--af-charbon-3);border:1px solid var(--line-2);color:var(--txt-2);border-radius:9px;padding:8px;font:inherit;font-weight:600;font-size:12px;cursor:pointer">✕ Retirer la photo — revenir en scène IA</button>
+
+      <label class="f" id="ctx-label">Décrivez la scène</label>
+      <textarea id="scene" placeholder="Ex : maison basque, au soir tombant, lumière chaude…"></textarea>
+      <div class="hint hide" id="descr-hint" style="text-align:left;margin-top:6px;color:var(--af-vert)"></div>
+      <div class="chips hide" id="chips-descr" style="margin-top:7px"></div>
+
+      <div id="maison-block"><div class="chip-lab">Style de maison</div><div class="chips" id="chips-maison"></div></div>
+      <div class="chip-lab">Ambiance</div><div class="chips" id="chips-amb"></div>
+
+      </div><!-- /tab-config -->
+
+      <div id="tab-params" class="hide">
+        <label class="f">Niveau de rendu</label>
+        <div class="seg" id="qual">
+          <button data-q="local">Local · 0 €</button>
+          <button data-q="apercu">Aperçu</button>
+          <button data-q="standard" class="on">Standard</button>
+          <button data-q="premium">Premium</button>
+        </div>
+        <div class="hint" id="qualhint" style="text-align:left;margin-top:4px">Standard : bon rendu, économique.</div>
+
+        <label class="f">Format</label>
+        <div class="seg" id="format"><button data-a="3:2" class="on">Paysage</button><button data-a="2:3">Portrait</button></div>
+
+        <label class="f">Résolution</label>
+        <div class="seg" id="size"><button data-s="2K" class="on">2K · écran</button><button data-s="4K">4K · catalogue</button></div>
+        <div class="hint" id="sizehint" style="text-align:left;margin-top:4px">2K : idéal écran / partage. 4K : export haute définition pour catalogue (plus lent, plus coûteux).</div>
+
+        <label class="f">Propositions</label>
+        <div class="seg" id="nb"><button data-n="1" class="on">1 rendu</button><button data-n="3">3 variantes · 0 €</button></div>
+        <div class="hint" style="text-align:left;margin-top:4px">Les variantes tournent sur le moteur local gratuit (≈ 1 min chacune). Sélectionne la meilleure puis « Refaire en mieux » pour la version HD.</div>
+      </div>
+
+      <div class="gowrap">
+        <button class="go" id="go"><svg class="ico-sm" viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg>Générer le rendu</button>
+        <div class="hint" id="hint">≈ 20 s · rendu 2K photoréaliste</div>
+      </div>
+    </div>
+
+    <!-- STAGE -->
+    <div class="stage">
+      <button class="redo" id="redo"><svg class="ico-sm" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg>Refaire en mieux</button>
+      <button class="fsbtn" id="fsbtn" title="Plein écran"><svg class="ico-sm" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Plein écran</button>
+      <button class="shbtn" id="shbtn" title="Partager le rendu"><svg class="ico-sm" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Partager</button>
+      <div id="histo"></div>
+      <div class="loading" id="loading"><div><div class="spin"></div><div class="t" id="loadtxt">Génération…</div></div></div>
+      <div class="vargrid hide" id="vargrid"></div>
+      <div class="empty" id="empty">
+        <div class="big"><svg class="ico" viewBox="0 0 24 24" style="width:26px;height:26px"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="8.5" r="1.5"/></svg></div>
+        <h4>Votre rendu apparaîtra ici</h4><p>Choisissez un modèle, un contexte — et laissez l'IA faire le reste.</p>
+      </div>
+      <img id="result" class="hide" alt="rendu">
+    </div>
+  </div>
+</div>
+
+<!-- lightbox plein écran du rendu -->
+<div class="lb" id="lb">
+  <button class="x" id="lbx" title="Fermer">✕</button>
+  <img id="lbimg" alt="rendu plein écran">
+  <a class="dl" id="lbdl" download="rendu.png"><svg class="ico-sm" viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Télécharger</a>
+</div>
+
+<script>
+const API={base:(window.__APIBASE__||"/api")};
+const THUMBVER="20260712c";   // bump pour casser le cache CF/navigateur des vignettes après maj images
+const $=s=>document.querySelector(s);
+const FALLBACK_MODELS=[
+  {product_id:"porte-cadre-noir-clairevoie",nom:"Clairevoie",gamme:"Cadre noir"},
+  {product_id:"porte-contemporaine-ottawa",nom:"Ottawa",gamme:"Contemporaine"},
+  {product_id:"porte-neo-classique-divine-vitree",nom:"Divine Vitrée",gamme:"Néo Classique"}];
+const FALLBACK_COLORS=[{code:"",nom:"Couleur d'origine"},{code:"RAL 7016 gris anthracite",nom:"Gris anthracite (7016)"},{code:"RAL 9005 noir profond",nom:"Noir (9005)"},{code:"RAL 3004 rouge pourpre / bordeaux",nom:"Bordeaux (3004)"},{code:"RAL 6005 vert mousse",nom:"Vert mousse (6005)"}];
+const MAISONS=[["Villa contemporaine","maison moderne d'architecte, béton et grandes baies vitrées, toit plat"],["Maison basque","maison basque traditionnelle, façade blanche et colombages rouges"],["Longère bretonne","longère bretonne en pierre, jardin verdoyant"],["Mas provençal","mas provençal en pierre dorée, volets, oliviers"],["Maison de ville","maison de ville élégante en pierre de taille"],["Chalet montagne","chalet de montagne en bois, neige, sapins"]];
+const AMB=[["Soir tombant","au soir tombant, lumière chaude dorée"],["Plein soleil","en plein soleil, ciel bleu franc"],["Heure bleue","à l'heure bleue, lumières allumées"],["Neige","sous la neige, ambiance hivernale"],["Automne","en automne, feuilles dorées"],["Bord de mer","en bord de mer, lumière atlantique"]];
+const DESCR=[["Contemporaine anthracite","porte d'entrée contemporaine en aluminium gris anthracite, un vantail plein, poignée barre inox verticale"],["Vitrée moderne","porte d'entrée moderne mi-vitrée, grand vitrage dépoli, cadre aluminium fin, poignée design inox"],["Classique bois","porte d'entrée classique en bois chêne doré, panneaux moulurés, imposte vitrée cintrée"],["Portail alu","portail aluminium contemporain, lames horizontales pleines, gris anthracite"]];
+
+let MODELES=[], COULEURS=[];
+function fillSel(sel,items,v,l){ sel.innerHTML=items.map(i=>`<option value="${v(i)}">${l(i)}</option>`).join(""); }
+let FAM="porte";   // catégorie active : porte | portail
+function _pool(){   // modèles de la famille active (repli : si aucun modèle n'a de famille, on prend tout)
+  const hasFam=MODELES.some(m=>m.famille);
+  return hasFam?MODELES.filter(m=>m.famille===FAM):MODELES;
+}
+function fillGammes(){
+  const gammes=[...new Set(_pool().map(m=>m.gamme))];
+  fillSel($("#gamme"),gammes,g=>g,g=>g); fillModels();
+}
+function fillModels(){
+  const g=$("#gamme").value; const ms=_pool().filter(m=>m.gamme===g);
+  fillSel($("#model"),ms,m=>m.product_id,m=>m.nom);      // select caché = source de vérité (logique existante)
+  renderModelGrid(ms);
+  updateModelHint();
+}
+// grille de vignettes : image produit + nom + pastille fidélité
+function renderModelGrid(ms){
+  const grid=$("#model-grid"); if(!grid) return;
+  const cur=$("#model").value;
+  grid.innerHTML=ms.map(m=>{
+    const bdg=m.reel?'<span class="bdg reel" title="Photo produit réelle">📷</span>'
+                    :'<span class="bdg ia" title="Aperçu IA">✨</span>';
+    return `<div class="mcell${m.product_id===cur?' on':''}" data-pid="${m.product_id}" title="${m.nom}">`
+         + `<img loading="lazy" src="${API.base}/thumb/${m.product_id}.png?v=${THUMBVER}" `
+         + `onerror="this.style.opacity=.25;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E'">`
+         + bdg + `<div class="nm">${m.nom}</div></div>`;
+  }).join("");
+  grid.querySelectorAll(".mcell").forEach(c=>c.addEventListener("click",()=>selectModel(c.dataset.pid)));
+}
+function selectModel(pid){
+  const sel=$("#model"); if(sel.value===pid && MODELES.length) {} sel.value=pid;
+  sel.dispatchEvent(new Event("change"));
+}
+function syncModelGrid(){
+  const cur=$("#model").value;
+  $("#model-grid")&&$("#model-grid").querySelectorAll(".mcell").forEach(c=>
+    c.classList.toggle("on",c.dataset.pid===cur));
+}
+// AR Quick Look (iPhone/iPad uniquement) : usdz du produit aux dimensions saisies
+const IS_IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+function syncAR(){ const b=$("#arbtn"); if(b) b.classList.toggle("hide",!IS_IOS||!$("#model").value); }
+document.addEventListener("DOMContentLoaded",()=>{});
+$("#arbtn").addEventListener("click",()=>{
+  const pid=$("#model").value; if(!pid) return;
+  const w=parseInt($("#larg").value)||(FAM==="portail"?3500:900);
+  const h=parseInt($("#haut").value)||(FAM==="portail"?1600:2150);
+  const a=document.createElement("a"); a.rel="ar";               // pattern AR Quick Look Safari
+  a.appendChild(document.createElement("img"));
+  a.href=`${API.base}/ar/${pid}.usdz?w=${w}&h=${h}`;
+  document.body.appendChild(a); a.click(); a.remove();
+});
+// repère fidélité : photo produit réelle vs aperçu IA
+function updateModelHint(){
+  syncModelGrid(); syncAR();
+  const h=$("#model-hint"); if(!h) return;
+  const m=MODELES.find(x=>x.product_id===$("#model").value);
+  if(m && m.reel){ h.innerHTML='<span style="color:var(--g,#7bd943)">📷 Photo produit réelle — rendu fidèle</span>'; }
+  else if(m){ h.innerHTML='<span style="color:var(--txt-3)">✨ Aperçu IA — pas encore la photo produit exacte</span>'; }
+  else h.textContent='';
+}
+// pastilles couleur RAL (le select #color reste la source de vérité)
+function renderColorSwatches(){
+  const wrap=$("#color-sw"); if(!wrap) return;
+  const cur=$("#color").value;
+  wrap.innerHTML=COULEURS.map(c=>{
+    if(!c.hex) return `<div class="sw origin${c.code===cur?' on':''}" data-code="${c.code}" title="${c.nom}">🎨</div>`;
+    return `<div class="sw${c.code===cur?' on':''}" data-code="${c.code}" title="${c.nom}" style="background:${c.hex}"></div>`;
+  }).join("");
+  wrap.querySelectorAll(".sw").forEach(s=>s.addEventListener("click",()=>{
+    $("#color").value=s.dataset.code; syncColorSwatches();
+  }));
+}
+function syncColorSwatches(){
+  const cur=$("#color").value;
+  $("#color-sw")&&$("#color-sw").querySelectorAll(".sw").forEach(s=>
+    s.classList.toggle("on",s.dataset.code===cur));
+}
+// bascule Portes / Portails
+document.querySelectorAll("#famille button").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll("#famille button").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on"); FAM=b.dataset.fam;
+  // cotes par défaut adaptées (portail = large, porte = standard)
+  if(FAM==="portail"){ $("#larg").value="3500"; $("#haut").value="1600"; }
+  else{ $("#larg").value="900"; $("#haut").value="2150"; }
+  $("#portail-opts").classList.toggle("hide",FAM!=="portail");
+  $("#porte-opts").classList.toggle("hide",FAM==="portail");
+  fillGammes();
+}));
+// décor portail : multi-sélection
+$("#p-decor").querySelectorAll(".chip").forEach(ch=>ch.addEventListener("click",()=>ch.classList.toggle("on")));
+// construit la phrase de design portail (forme + remplissage + décor)
+function portailDesign(){
+  if(FAM!=="portail") return "";
+  const dec=[...$("#p-decor").querySelectorAll(".chip.on")].map(c=>c.dataset.d);
+  return `portail ${$("#p-forme").value}, ${$("#p-rempl").value}`+(dec.length?", "+dec.join(", "):"");
+}
+function porteDesign(){
+  if(FAM!=="porte") return "";
+  const parts=[];
+  const g=$("#glaz").value; if(g && g!=="Selon modèle") parts.push(g.toLowerCase());
+  const h=$("#handle").value; if(h && h!=="Selon modèle") parts.push("poignée "+h.toLowerCase());
+  ["p-imposte","p-tierce","p-insert"].forEach(id=>{const v=$("#"+id).value; if(v) parts.push(v);});
+  return parts.length ? "porte d'entrée "+parts.join(", ") : "";
+}
+function currentDesign(){ return FAM==="portail"?portailDesign():porteDesign(); }
+async function loadCatalog(){
+  try{
+    const d=await (await fetch(`${API.base}/catalog`)).json();
+    MODELES=d.modeles&&d.modeles.length?d.modeles:FALLBACK_MODELS;
+    COULEURS=d.couleurs&&d.couleurs.length?d.couleurs:FALLBACK_COLORS;
+  }catch(e){ MODELES=FALLBACK_MODELS; COULEURS=FALLBACK_COLORS; }
+  fillGammes(); fillSel($("#color"),COULEURS,c=>c.code,c=>c.nom); renderColorSwatches();
+}
+$("#gamme").addEventListener("change",fillModels);
+$("#model").addEventListener("change",updateModelHint);
+$("#chips-maison").innerHTML=MAISONS.map(m=>`<span class="chip" data-frag="${m[1]}">${m[0]}</span>`).join("");
+$("#chips-amb").innerHTML='<span class="chip on" data-frag="">Telle quelle</span>'+AMB.map(m=>`<span class="chip" data-frag="${m[1]}">${m[0]}</span>`).join("");
+// canevas unifié : la présence d'une photo décide du mode (scene ⇄ photo)
+let SRC="scene", maisonFrag="", ambFrag="";
+// en mode scène, les puces (style maison + ambiance) composent le texte de la scène
+function applySceneChips(){
+  if(SRC==="photo") return;                 // en mode photo, l'ambiance ne réécrit pas le texte
+  const parts=[]; if(maisonFrag)parts.push(maisonFrag); if(ambFrag)parts.push(ambFrag);
+  if(parts.length)$("#scene").value=parts.join(", ");
+}
+$("#chips-maison").querySelectorAll(".chip").forEach(ch=>ch.addEventListener("click",()=>{
+  const was=ch.classList.contains("on");
+  $("#chips-maison").querySelectorAll(".chip").forEach(x=>x.classList.remove("on"));
+  if(!was){ch.classList.add("on");maisonFrag=ch.dataset.frag;}else maisonFrag="";
+  applySceneChips();
+}));
+$("#chips-amb").querySelectorAll(".chip").forEach(ch=>ch.addEventListener("click",()=>{
+  $("#chips-amb").querySelectorAll(".chip").forEach(x=>x.classList.remove("on"));
+  ch.classList.add("on"); ambFrag=ch.dataset.frag;
+  applySceneChips();
+}));
+// bascule visuelle scène ⇄ photo (pilotée par l'ajout/retrait de photo)
+function setPhotoMode(on){
+  SRC=on?"photo":"scene";
+  $("#ctx-label").textContent=on?"Décrivez la menuiserie":"Décrivez la scène";
+  $("#scene").placeholder=on
+    ?"Ex : porte alu anthracite, grande imposte vitrée, poignée barre inox… — l'IA reconnaît le produit du catalogue"
+    :"Ex : maison basque, au soir tombant, lumière chaude…";
+  $("#maison-block").classList.toggle("hide",on);   // style de maison = scène uniquement
+  $("#chips-descr").classList.toggle("hide",!on);   // pré-remplissage menuiserie = photo uniquement
+  $("#photo-clear").classList.toggle("hide",!on);
+  $("#scene").value=""; _lastDetected="";           // repart d'un texte propre entre les 2 usages
+  $("#descr-hint").classList.add("hide"); $("#descr-hint").textContent="";
+}
+// onglets Configuration / Paramètres
+$("#tabs").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+  $("#tabs").querySelectorAll("button").forEach(x=>x.classList.remove("on")); b.classList.add("on");
+  const t=b.dataset.tab;
+  $("#tab-config").classList.toggle("hide",t!=="config");
+  $("#tab-params").classList.toggle("hide",t!=="params");
+}));
+// résolution 2K / 4K (export catalogue)
+let SIZE="2K";
+$("#size").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+  $("#size").querySelectorAll("button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); SIZE=b.dataset.s;
+  const h=$("#hint"); if(h) h.textContent=`≈ ${SIZE==="4K"?"35":"20"} s · rendu ${SIZE} photoréaliste`;
+}));
+// format paysage / portrait (défaut paysage) — s'applique aux scènes IA
+let FMT="3:2";
+$("#format").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+  $("#format").querySelectorAll("button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); FMT=b.dataset.a;
+}));
+// photo upload : ajouter une photo bascule en mode "photo", la retirer revient en "scène"
+let pFile=null;
+const drop=$("#drop"),file=$("#file");
+drop.addEventListener("click",()=>file.click());
+file.addEventListener("change",e=>{if(e.target.files[0])setFile(e.target.files[0]);});
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
+drop.addEventListener("dragleave",e=>{e.preventDefault();drop.classList.remove("over");});
+drop.addEventListener("drop",e=>{e.preventDefault();drop.classList.remove("over");const f=e.dataTransfer.files[0];if(f)setFile(f);});
+// compresse la photo côté client (photos iPhone 3-5 Mo → ~300 Ko) : upload 10× plus rapide en 4G
+async function compressPhoto(f){
+  try{
+    if(f.size<600000) return f;                            // déjà légère
+    let bmp; try{ bmp=await createImageBitmap(f,{imageOrientation:"from-image"}); }catch(e){ bmp=await createImageBitmap(f); }
+    const MAX=1600, s=Math.min(1,MAX/Math.max(bmp.width,bmp.height));
+    const cv=document.createElement("canvas");
+    cv.width=Math.round(bmp.width*s); cv.height=Math.round(bmp.height*s);
+    cv.getContext("2d").drawImage(bmp,0,0,cv.width,cv.height);
+    const blob=await new Promise(r=>cv.toBlob(r,"image/jpeg",0.86));
+    if(blob&&blob.size<f.size) return new File([blob],(f.name||"photo").replace(/\.\w+$/,"")+".jpg",{type:"image/jpeg"});
+  }catch(e){}
+  return f;                                                // au moindre doute : l'original
+}
+function setFile(f){
+  const img=$("#preview"); img.src=URL.createObjectURL(f); img.classList.remove("hide");
+  $("#dropinner").classList.add("hide"); setPhotoMode(true);
+  pFile=f; compressPhoto(f).then(cf=>{ if(pFile===f) pFile=cf; });
+}
+$("#photo-clear").addEventListener("click",()=>{
+  pFile=null; $("#file").value=""; const img=$("#preview"); img.src=""; img.classList.add("hide"); $("#dropinner").classList.remove("hide");
+  setPhotoMode(false);
+});
+// pré-remplissage menuiserie (mode photo) : insère une description type dans le champ
+$("#chips-descr").innerHTML=DESCR.map(d=>`<span class="chip" data-frag="${d[1]}">${d[0]}</span>`).join("");
+$("#chips-descr").querySelectorAll(".chip").forEach(ch=>ch.addEventListener("click",()=>{$("#scene").value=ch.dataset.frag;}));
+// DÉTECTION NLP : produit non saisi → l'IA extrait produit+couleur+options du texte et remplit la config
+function setSelVal(sel,v){for(const o of sel.options){if(o.value===v||o.text===v){sel.value=o.value;return true;}}return false;}
+// --- détection LOCALE (0 appel API) : matche modèle/couleur/dimensions dans le texte.
+//     Gemini /parse ne sert plus que de repli quand rien ne matche ici. ---
+const _norm=s=>s.normalize("NFKD").replace(/[̀-ͯ]/g,"").toLowerCase();
+const COLOR_ALIAS=[["beige","ivoire"],["creme","ivoire"],["marron","brun"],["chocolat","brun"],["gris fonce","anthracite"],["rouge","bordeaux"],["bois","chene"],["dore","chene"]];
+function localDetect(q){
+  const t=_norm(q);
+  const has=w=>new RegExp("(^|[^a-z0-9])"+w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"($|[^a-z0-9])").test(t);
+  let model=null,best=0;
+  for(const m of MODELES){
+    const toks=_norm(m.nom).split(/[^a-z0-9]+/).filter(Boolean);
+    if(!toks.length||!has(toks[0])) continue;               // 1er token (nom propre du modèle) requis
+    let sc=toks[0].length;
+    for(let i=1;i<toks.length;i++) if(has(toks[i])) sc+=toks[i].length+3;   // "105", "2 vantaux"… affinent
+    if(sc>best){best=sc;model=m;}
+  }
+  let color=null;
+  for(const c of COULEURS){
+    if(!c.code) continue;
+    const words=_norm(c.nom).replace(/\(.*\)/,"").trim().split(/\s+/).filter(w=>w.length>3);
+    if(words.length&&words.every(w=>has(w))){color=c;break;}
+  }
+  if(!color) for(const c of COULEURS){                       // match partiel (ex "anthracite" seul)
+    if(!c.code) continue;
+    const words=_norm(c.nom).replace(/\(.*\)/,"").trim().split(/\s+/).filter(w=>w.length>4);
+    if(words.some(w=>has(w))){color=c;break;}
+  }
+  if(!color) for(const [al,tg] of COLOR_ALIAS){ if(has(al)){color=COULEURS.find(c=>_norm(c.nom).includes(tg))||null; if(color)break; } }
+  const dm=q.match(/(\d{3,4})\s*[x×*]\s*(\d{3,4})/);
+  return {model,color,W:dm?dm[1]:null,H:dm?dm[2]:null};
+}
+function applyLocalDetect(d){
+  if(d.model){
+    FAM=d.model.famille==="portail"?"portail":"porte";
+    document.querySelectorAll("#famille button").forEach(x=>x.classList.toggle("on",x.dataset.fam===FAM));
+    $("#portail-opts").classList.toggle("hide",FAM!=="portail"); $("#porte-opts").classList.toggle("hide",FAM==="portail");
+    fillGammes(); setSelVal($("#gamme"),d.model.gamme); fillModels();
+    setSelVal($("#model"),d.model.product_id); syncModelGrid();
+  }
+  if(d.color){ setSelVal($("#color"),d.color.code); syncColorSwatches(); }
+  if(d.W) $("#larg").value=d.W;
+  if(d.H) $("#haut").value=d.H;
+  updateModelHint();
+}
+// DÉTECTION NLP AUTOMATIQUE : dès qu'une description est saisie (blur / avant génération),
+// l'IA reconnaît le produit catalogue et remplit la config. Plus de bouton.
+let _detecting=false, _lastDetected="";
+async function runDetect(){
+  const q=$("#scene").value.trim();
+  if(!q || q===_lastDetected || _detecting) return;
+  _detecting=true; _lastDetected=q;
+  const photo=!!pFile;                       // mode photo → le texte = description menuiserie ; scène → texte = ambiance
+  const h=$("#descr-hint"); h.classList.remove("hide"); h.textContent="Reconnaissance…";
+  // 1) matcher LOCAL : instantané et gratuit — Gemini seulement si rien ne matche
+  const loc=localDetect(q);
+  if(loc.model){
+    applyLocalDetect(loc);
+    if(photo){ $("#scene").value=""; _lastDetected=""; }
+    h.textContent="✓ Reconnu : "+loc.model.nom+" · "+loc.model.gamme+(loc.color?` · ${loc.color.nom}`:"")+(photo?" — ajustable ci-dessus.":" — le texte reste la scène.");
+    _detecting=false; return;
+  }
+  if(!photo && loc.color){                   // scène : une couleur seule suffit (le modèle vient de la grille)
+    applyLocalDetect(loc);
+    h.textContent="✓ Couleur appliquée : "+loc.color.nom;
+    _detecting=false; return;
+  }
+  if(!photo){
+    // scène sans modèle nommé : ON S'ARRÊTE LÀ. Pas de Gemini — il « devine » un produit
+    // d'après le style (« longère » → porte classique) et écrase la sélection manuelle.
+    h.textContent=""; h.classList.add("hide");
+    _detecting=false; return;
+  }
+  try{
+    const fd=new FormData(); fd.append("q",q);
+    const r=await (await fetch(`${API.base}/parse`,{method:"POST",body:fd})).json();
+    if(r.error) throw new Error(r.error);
+    if(r.matched){
+      if(r.product_id){
+        FAM=(r.famille==="portail"||/^portail/i.test(r.product_id))?"portail":"porte";
+        document.querySelectorAll("#famille button").forEach(x=>x.classList.toggle("on",x.dataset.fam===FAM));
+        $("#portail-opts").classList.toggle("hide",FAM!=="portail"); $("#porte-opts").classList.toggle("hide",FAM==="portail");
+        fillGammes();
+      }
+      if(r.gamme){ setSelVal($("#gamme"),r.gamme); fillModels(); }
+      if(r.product_id){ setSelVal($("#model"),r.product_id); syncModelGrid(); }
+      if(r.color){ setSelVal($("#color"),r.color); syncColorSwatches(); }
+      if(r.glazing) setSelVal($("#glaz"),r.glazing);
+      if(r.handle) setSelVal($("#handle"),r.handle);
+      if(r.width_mm) $("#larg").value=r.width_mm;
+      if(r.height_mm) $("#haut").value=r.height_mm;
+      updateModelHint();
+      if(photo){ $("#scene").value=""; _lastDetected=""; }   // photo : le texte était la description menuiserie → on bascule sur le produit catalogue
+      const bits=(r.color_nom?` · ${r.color_nom}`:"");
+      h.textContent=(photo?"✓ Produit reconnu : ":"✓ Reconnu : ")+(r.note||`${r.product_nom} · ${r.gamme}`)+bits+(photo?" — ajustable ci-dessus.":" — modèle & couleur appliqués. Le texte reste la scène.");
+    }else if(photo){
+      h.textContent=(r.note?r.note+" — ":"")+"Aucun produit catalogue ne correspond : l'IA le générera librement d'après ta description.";
+    }else{
+      h.textContent=""; h.classList.add("hide");   // scène : rien reconnu → silencieux (le modèle vient de la grille)
+    }
+  }catch(e){ if(photo) h.textContent="Reconnaissance indisponible — l'IA suivra ta description telle quelle."; else {h.textContent="";h.classList.add("hide");} }
+  finally{ _detecting=false; }
+}
+$("#scene").addEventListener("blur",runDetect);
+// niveau de rendu (routage multi-moteur par coût)
+let QUAL="standard";
+const QUALHINT={local:"Local · 0 € : moteur ComfyUI maison (Qwen), gratuit et illimité, un peu plus lent (~1 min). Idéal pour explorer sans entamer le budget.",apercu:"Aperçu : rapide et éco, pour explorer.",standard:"Standard : bon rendu, économique.",premium:"Premium : qualité livrable client (plus coûteux)."};
+$("#qual").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{$("#qual").querySelectorAll("button").forEach(x=>x.classList.remove("on"));b.classList.add("on");QUAL=b.dataset.q;$("#qualhint").textContent=QUALHINT[QUAL];}));
+// propositions
+let NB=1;
+$("#nb").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{$("#nb").querySelectorAll("button").forEach(x=>x.classList.remove("on"));b.classList.add("on");NB=+b.dataset.n;}));
+
+function setLoading(on,txt){$("#loading").classList.toggle("on",on);if(txt)$("#loadtxt").textContent=txt;$("#go").disabled=on;}
+function showResult(url){$("#empty").classList.add("hide");const img=$("#result");img.src=url;img.classList.remove("hide");$("#fsbtn").classList.add("show");$("#shbtn").classList.add("show");syncHisto();}
+// --- galerie de session : garde les 12 derniers rendus, cliquables (précieux en RDV client) ---
+const HISTO=[];
+function pushHisto(job,url){
+  if(HISTO.some(h=>h.job===job)) return;
+  HISTO.push({job,url}); if(HISTO.length>12) HISTO.shift();
+  const el=$("#histo");
+  el.innerHTML=HISTO.map(h=>`<img src="${h.url}" data-job="${h.job}" title="Revoir ce rendu">`).join("");
+  el.querySelectorAll("img").forEach(im=>im.addEventListener("click",()=>{
+    lastJob=im.dataset.job; showResult(im.src); $("#redo").classList.add("show");
+  }));
+  el.classList.toggle("show",HISTO.length>1);
+  syncHisto();
+}
+function syncHisto(){
+  const cur=$("#result").src;
+  $("#histo").querySelectorAll("img").forEach(im=>im.classList.toggle("on",im.src===cur));
+}
+// --- partage natif (iPhone : WhatsApp / Mail / SMS) ; repli téléchargement sur desktop ---
+async function shareResult(){
+  const src=$("#result").src; if(!src) return;
+  try{
+    const b=await (await fetch(src)).blob();
+    const f=new File([b],"rendu-art-et-fenetres.png",{type:"image/png"});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:"Rendu Art & Fenêtres"}); return; }
+  }catch(e){ if(e&&e.name==="AbortError") return; }
+  const a=document.createElement("a"); a.href=src; a.download="rendu-art-et-fenetres.png"; a.click();
+}
+$("#shbtn").addEventListener("click",shareResult);
+// plein écran (lightbox) — fiable sur mobile/iOS où l'API Fullscreen est limitée
+function openLightbox(){const src=$("#result").src;if(!src)return;$("#lbimg").src=src;$("#lbdl").href=src;$("#lb").classList.add("on");document.body.style.overflow="hidden";}
+function closeLightbox(){$("#lb").classList.remove("on");document.body.style.overflow="";}
+$("#fsbtn").addEventListener("click",openLightbox);
+$("#result").addEventListener("click",openLightbox);
+$("#lbx").addEventListener("click",closeLightbox);
+$("#lb").addEventListener("click",e=>{if(e.target.id==="lb")closeLightbox();});   // clic sur le fond ferme
+$("#lbimg").addEventListener("click",closeLightbox);
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#lb").classList.contains("on"))closeLightbox();});
+
+// construit le FormData de la génération courante
+function buildFD(){
+  const fd=new FormData();
+  const photo=!!pFile;                                  // présence d'une photo = mode "façade client"
+  const txt=$("#scene").value.trim();
+  const dsc=photo?txt:"";                               // en mode photo, le texte = description menuiserie (optionnel)
+  if(!dsc) fd.append("product_id",$("#model").value);   // pas de description → produit catalogue sélectionné
+  // famille → classes de détection/vocabulaire de rendu (portail = grille/vantail, pas porte)
+  fd.append("classes", FAM==="portail" ? "gate,portal,portail,driveway gate,fence gate" : "door,front door,entrance door");
+  if(!dsc){ const pd=currentDesign(); if(pd) fd.append("design",pd); }   // options portail (forme/remplissage/décor) OU porte (imposte/tierce/insert/vitrage/poignée)
+  if($("#color").value) fd.append("ral",$("#color").value);
+  fd.append("size",SIZE); fd.append("aspect",FMT); fd.append("quality",QUAL);
+  if(!photo){
+    if(!txt){$("#scene").focus();return null;}
+    fd.append("mode","scene"); fd.append("scene",txt);
+  }else{
+    fd.append("photo",pFile);
+    if(dsc) fd.append("describe",dsc);
+    if(ambFrag) fd.append("ambiance",ambFrag);
+  }
+  return fd;
+}
+async function refreshUsage(){
+  try{
+    const u=await (await fetch(`${API.base}/usage`)).json();
+    const el=$("#usage"); if(!el||u.eur==null) return;
+    const cap=u.cap_eur>0?` / ${u.cap_eur.toFixed(0)}€`:"";
+    el.textContent=`Aujourd'hui : ${u.count} · ${u.eur.toFixed(2)}€${cap}`;
+    el.style.borderColor=u.capped?"#e0533d":""; el.style.color=u.capped?"#e0533d":"";
+  }catch(e){}
+}
+let lastJob=null;
+async function runOne(extra){
+  const fd=buildFD(); if(!fd) return null;
+  if(extra) for(const k in extra) fd.set(k,extra[k]);   // set = écrase (ex. quality forcée local pour les variantes)
+  const q=fd.get("quality")||QUAL;
+  const est=(q==="local"?80:q==="premium"?35:20)+(fd.get("size")==="4K"?15:0);   // ETA indicative par moteur
+  const maxMs=(q==="local"?360:150)*1000;               // le local (file GPU) peut largement dépasser 100 s
+  const setTxt=t=>{const el=$("#loadtxt");if(el)el.textContent=t;};
+  const resp=await (await fetch(`${API.base}/render`,{method:"POST",body:fd})).json();
+  if(resp.error) throw new Error(resp.error);   // ex. plafond IA atteint (429)
+  const job_id=resp.job_id;
+  if(!job_id) throw new Error("pas de job");
+  const t0=Date.now();
+  while(Date.now()-t0<maxMs){ await new Promise(s=>setTimeout(s,2000));
+    const j=await (await fetch(`${API.base}/job/${job_id}`)).json();
+    if(j.status==="done"){ lastJob=job_id; refreshUsage(); const url=`${API.base}/result/${job_id}.png`; pushHisto(job_id,url); return url; }
+    if(j.status==="error") throw new Error(j.error||"rendu échoué");
+    const sec=Math.round((Date.now()-t0)/1000);
+    if(j.status==="queued"&&j.position>0) setTxt(`En file d'attente — ${j.position} rendu${j.position>1?"s":""} devant…`);
+    else setTxt(`${q==="local"?"Rendu local (gratuit)":"Rendu "+q} en cours… ${sec} s / ~${est} s`);
+  }
+  throw new Error("temps dépassé");
+}
+async function generate(extra){
+  if(!extra) await runDetect();   // détection AUTO avant rendu : produit (photo) + couleur/modèle depuis le texte (scène)
+  const grid=$("#vargrid"); $("#redo").classList.remove("show");
+  try{
+    if(NB===1 || extra){ // refaire en mieux = 1 rendu
+      grid.classList.add("hide"); grid.innerHTML="";
+      setLoading(true, extra?"Amélioration en cours…":"Génération… (≈ 20 s)");
+      const url=await runOne(extra); if(!url) {setLoading(false);return;}
+      showResult(url); setLoading(false); $("#redo").classList.add("show");
+    }else{
+      grid.innerHTML=""; grid.classList.remove("hide"); $("#empty").classList.add("hide");
+      const slots=[]; for(let i=0;i<NB;i++){const v=document.createElement("div");v.className="v";v.innerHTML='<div class="mini"></div>';grid.appendChild(v);slots.push(v);}
+      for(let i=0;i<NB;i++){
+        setLoading(true,`Proposition ${i+1}/${NB} (moteur local · 0 €)…`);
+        // exploration GRATUITE : variantes sur le moteur local ; « Refaire en mieux » (payant) sur l'élue
+        let url; try{ url=await runOne({quality:"local"}); }catch(e){ slots[i].innerHTML='<span style="font-size:10px;color:var(--txt-3)">échec</span>'; continue; }
+        if(!url){setLoading(false);return;}
+        slots[i].innerHTML=`<img src="${url}">`; const jb=lastJob;
+        slots[i].addEventListener("click",()=>{grid.querySelectorAll(".v").forEach(x=>x.classList.remove("sel"));slots[i].classList.add("sel");showResult(url);lastJob=jb;$("#redo").classList.add("show");});
+        if(i===0){slots[i].classList.add("sel");showResult(url);}
+      }
+      setLoading(false); $("#redo").classList.add("show");
+    }
+  }catch(e){ setLoading(false); alert("Erreur : "+e.message); }
+}
+$("#go").addEventListener("click",()=>generate());
+$("#redo").addEventListener("click",()=>{ if(lastJob) generate({improve_from:lastJob}); });
+loadCatalog(); refreshUsage();
+</script>
+<script src="manifest.js"></script>
+<script src="faisabilite_data.js"></script>
+<script src="v2_live.js"></script>
+</body>
+</html>
