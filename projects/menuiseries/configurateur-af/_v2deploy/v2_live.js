@@ -3,6 +3,7 @@
   var MAN    = window.__MANIFEST__    || [];
   var FAISAB = window.__FAISABILITE__ || {};
   var PAL20  = window.__PALETTE_20__  || null;
+  var NICKEL = window.__NICKEL__      || {};
 
   if(!MAN.length){ console.warn("v2_live: manifest vide"); return; }
 
@@ -86,6 +87,40 @@
     "fold-noire-carree":"Fold noire carrée",     "fold-noire-ronde":"Fold noire ronde",
     "cuir-noir":"Cuir noir", "barre-inox":"Barre inox", "Poignée Alu":"Poignée Alu"
   };
+
+  // Photos des poignées capturées depuis le configurateur A&F
+  var _HANDLE_IMGS = {
+    "linear-noire-carree":"accessories/handle_linear-noire-carree.png",
+    "linear-noire-ronde": "accessories/handle_linear-noire-ronde.png",
+    "chop-noire-carree":  "accessories/handle_chop-noire-carree.png",
+    "fold-inox-carree":   "accessories/handle_fold-inox-carree.png",
+    "fold-inox-ronde":    "accessories/handle_fold-inox-ronde.png",
+    "fold-noire-carree":  "accessories/handle_fold-noire-carree.png",
+    "fold-noire-ronde":   "accessories/handle_fold-noire-ronde.png"
+  };
+
+  // Photo barre de tirage
+  var _BARRE_IMGS = {
+    "inox":"accessories/barre_barre-de-tirage-inox.png",
+    "barre-de-tirage-inox":"accessories/barre_barre-de-tirage-inox.png"
+  };
+
+  // Variants vitrés : pid plein → pid vitré (même modèle, avec vitrage)
+  var _VITREE_MAP = {
+    "porte-cadre-noir-art-deco":    "porte-cadre-noir-art-deco-vitree",
+    "porte-classique-calabre":      "porte-classique-calabre-vitree",
+    "porte-classique-castille":     "porte-classique-castille-vitree",
+    "porte-classique-galice":       "porte-classique-galice-1-vitrage",
+    "porte-classique-navarre":      "porte-classique-navarre-vitree",
+    "porte-classique-saline":       "porte-classique-saline-vitree",
+    "porte-classique-toscane":      "porte-classique-toscane-vitree",
+    "porte-neo-classique-diva":     "porte-neo-classique-diva-vitree",
+    "porte-neo-classique-divine":   "porte-neo-classique-divine-vitree"
+  };
+  // Inverse : vitré → plein (pour garder le bon pid de base)
+  var _PLEIN_MAP = {};
+  Object.keys(_VITREE_MAP).forEach(function(k){ _PLEIN_MAP[_VITREE_MAP[k]]=k; });
+
   function lbl(v, dict){ return dict[v] || (v.charAt(0).toUpperCase()+v.slice(1)); }
 
   // Peupler un <select> depuis un tableau de codes
@@ -97,6 +132,52 @@
       html += '<option value="'+lab+'">'+lab+'</option>';
     });
     sel.innerHTML = html;
+  }
+
+  // Peupler une grille visuelle d'accessoires + garder le select caché synchronisé
+  function fillAccGrid(gridId, selId, values, dict, imgMap, prevId) {
+    var grid = document.querySelector(gridId); if(!grid) return;
+    var sel = selId ? document.querySelector(selId) : null;
+    grid.innerHTML = '';
+    if(sel) { sel.innerHTML = '<option value="">Selon modèle</option>'; }
+    if(!values || !values.length){ grid.parentElement && (grid.style.display='none'); return; }
+    grid.style.display = '';
+
+    values.forEach(function(v) {
+      var lab = lbl(v, dict||{});
+      if(sel){ var o=document.createElement('option'); o.value=lab; o.textContent=lab; sel.appendChild(o); }
+
+      var card = document.createElement('div');
+      card.className = 'acc-card'; card.dataset.val = lab; card.dataset.code = v;
+      var imgSrc = imgMap && (imgMap[v] || imgMap[lab.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')]);
+      if(imgSrc){
+        card.innerHTML = '<img src="'+imgSrc+'" alt="'+lab+'" loading="lazy"><div class="anom">'+lab+'</div>';
+      } else {
+        var abbr = lab.split(' ').map(function(w){return w[0];}).join('').slice(0,3).toUpperCase();
+        card.innerHTML = '<div class="acc-ph">'+abbr+'</div><div class="anom">'+lab+'</div>';
+      }
+
+      card.addEventListener('click', function(){
+        grid.querySelectorAll('.acc-card').forEach(function(c){c.classList.remove('on');});
+        card.classList.add('on');
+        if(sel) sel.value = lab;
+        _showAccPrev(prevId, imgSrc, lab);
+      });
+      grid.appendChild(card);
+    });
+  }
+
+  function _showAccPrev(prevId, imgSrc, nom) {
+    var prev = prevId && document.querySelector(prevId); if(!prev) return;
+    var img = prev.querySelector('img'), ph = prev.querySelector('.ap-ph'), nomEl = prev.querySelector('.ap-nom');
+    if(nomEl) nomEl.textContent = nom;
+    if(imgSrc && img) {
+      img.src = imgSrc; img.style.display = ''; if(ph) ph.style.display = 'none';
+    } else {
+      if(img) img.style.display = 'none';
+      if(ph) { ph.style.display=''; ph.textContent=nom.slice(0,12); }
+    }
+    prev.classList.add('show');
   }
 
   // Agréger les options sur tous les matériaux d'une porte
@@ -119,7 +200,7 @@
 
     if(isPortail){
       var poignees = (f && f.options && f.options.poignees) || [];
-      fillSel2('#handle', poignees, 'Selon modèle', _POI);
+      fillAccGrid('#handle-grid', '#handle', poignees, _POI, _HANDLE_IMGS, '#handle-prev');
       var gsel = document.querySelector('#glaz');
       if(gsel) gsel.innerHTML = '<option value="">Sans objet (portail)</option>';
       _updateExtraHint(null, null);
@@ -129,18 +210,36 @@
     if(!f || !f.materiaux){
       // Pas de faisabilité connue → options génériques
       fillSel2('#glaz',   ['Vitrage dépoli','Vitrage clair','Sans vitrage'], 'Selon modèle', {});
-      fillSel2('#handle', ['Barre inox','Béquille noire','Poignée design'],  'Selon modèle', {});
+      fillAccGrid('#handle-grid', '#handle', ['linear-noire-carree','fold-inox-carree','barre-inox'], _POI, _HANDLE_IMGS, '#handle-prev');
       _updateExtraHint(null, null);
       return;
     }
 
     var o = agg(f);
 
-    if(o.v.length)  fillSel2('#glaz',   o.v, 'Selon modèle', _VIT);
+    if(o.v.length)  fillSel2('#glaz', o.v, 'Selon modèle', _VIT);
     else { var gs=document.querySelector('#glaz'); if(gs) gs.innerHTML='<option value="">Sans vitrage</option>'; }
 
-    if(o.p.length)  fillSel2('#handle', o.p, 'Selon modèle', _POI);
-    else { var hs=document.querySelector('#handle'); if(hs) hs.innerHTML='<option value="">Selon modèle</option>'; }
+    if(o.p.length)  fillAccGrid('#handle-grid', '#handle', o.p, _POI, _HANDLE_IMGS, '#handle-prev');
+    else {
+      var hg=document.querySelector('#handle-grid'); if(hg) hg.innerHTML='';
+      var hs=document.querySelector('#handle'); if(hs) hs.innerHTML='<option value="">Selon modèle</option>';
+    }
+
+    // Barre de tirage visuelle
+    var barreLabel = document.querySelector('#barre-label'), barreGrid = document.querySelector('#barre-grid');
+    var barresNonNull = (o.bar||[]).filter(function(b){return !/^(aucun|Aucun)$/.test(b);});
+    if(barreGrid) {
+      if(barresNonNull.length) {
+        if(barreLabel) barreLabel.style.display='';
+        barreGrid.style.display='';
+        fillAccGrid('#barre-grid', null, barresNonNull, {inox:'Barre inox'}, _BARRE_IMGS, null);
+      } else {
+        if(barreLabel) barreLabel.style.display='none';
+        barreGrid.style.display='none';
+        barreGrid.innerHTML='';
+      }
+    }
 
     _updateExtraHint(o.ins, o.bar);
 
@@ -227,11 +326,23 @@
     var msel=document.querySelector("#model"); if(!msel) return;
     var pid=msel.value; if(!pid||!byId[pid]) return;
     var code=(document.querySelector("#color")||{}).value||"";
-    var entry=byId[pid];
-    var fallback=entry.img;
+
+    // Auto-switch vitré/plein selon le select vitrage
+    // basePid = toujours le pid plein (sans "-vitree"), displayPid peut être la version vitrée
+    var basePid = _PLEIN_MAP[pid] || pid;
+    var glazVal = (document.querySelector("#glaz")||{}).value||"";
+    var wantVitrage = glazVal && glazVal.toLowerCase().indexOf('sans') === -1 && glazVal !== '';
+    var displayPid = (wantVitrage && _VITREE_MAP[basePid] && byId[_VITREE_MAP[basePid]])
+                     ? _VITREE_MAP[basePid] : basePid;
+
+    var entry = byId[displayPid] || byId[pid];
+    var fallback = entry.img;
     var url;
-    if(code && entry.type!=="fenetre" && _RECOLOR_CODES[code]){
-      url = "catalogue/recolor/"+pid+"__"+code+".jpg";
+    // Couleur disponible si NICKEL le valide pour ce produit (ou fallback global si pas de NICKEL)
+    var nickelPid = NICKEL[displayPid] || NICKEL[basePid] || null;
+    var colorOk = code && (nickelPid ? nickelPid.indexOf(code) !== -1 : !!_RECOLOR_CODES[code]);
+    if(colorOk && entry.type!=="fenetre"){
+      url = "catalogue/recolor/"+displayPid+"__"+code+".png";
     } else {
       url = fallback;
     }
@@ -242,19 +353,26 @@
       r.onerror = function(){ this.onerror=null; this.src=fallback; };
       r.src = url;
     }
-    updateOptionsUI(pid);
-    _syncSwatchAvailability(pid);
+    updateOptionsUI(basePid);
+    _syncSwatchAvailability(basePid);
   }
 
-  // Griser visuellement les swatches sans recolor pour ce modèle
+  // Griser visuellement les swatches selon faisabilité par produit (source: _nickel.json)
   function _syncSwatchAvailability(pid){
-    var isPortail = pid.startsWith('portail-');
+    var nickelPid = NICKEL[pid] || NICKEL[_PLEIN_MAP[pid]] || null;
     document.querySelectorAll("#color-sw .sw").forEach(function(s){
       var code = s.dataset.code;
       if(!code){ s.style.opacity=""; s.title=(s.dataset.nom||""); return; } // anthracite = toujours dispo
-      var hasRecolor = !isPortail ? !!_RECOLOR_CODES[code] : !!_RECOLOR_CODES[code];
+      var hasRecolor;
+      if(nickelPid){
+        // Disponibilité déterminée par les PASS validés pour ce produit
+        hasRecolor = nickelPid.indexOf(code) !== -1;
+      } else {
+        // Produit sans PASS (fenêtres en cours) → fallback global
+        hasRecolor = !!_RECOLOR_CODES[code];
+      }
       s.style.opacity = hasRecolor ? "" : "0.35";
-      s.title = (s.dataset.nom||code) + (hasRecolor ? "" : " (aperçu — recolor bientôt)");
+      s.title = (s.dataset.nom||code) + (hasRecolor ? "" : " (non disponible pour ce modèle)");
     });
   }
 
@@ -301,6 +419,9 @@
         if(csw) csw.addEventListener("click",function(){ setTimeout(liveShow,0); });
         var csel=document.querySelector("#color");
         if(csel) csel.addEventListener("change",function(){ setTimeout(liveShow,0); });
+        // Vitrage change → auto-switch photo vitré/plein
+        var gsel=document.querySelector("#glaz");
+        if(gsel) gsel.addEventListener("change",function(){ setTimeout(liveShow,0); });
       }
       fillGammes();
       if(typeof renderColorSwatches==="function") renderColorSwatches();

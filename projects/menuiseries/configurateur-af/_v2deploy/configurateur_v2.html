@@ -49,6 +49,21 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--af-vert)
 .mcell .nm{font-size:10px;font-weight:700;color:var(--txt);padding:4px 5px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mcell .bdg{position:absolute;top:4px;right:4px;width:15px;height:15px;border-radius:50%;display:grid;place-items:center;font-size:9px;font-weight:800;background:rgba(20,19,19,.82)}
 .mcell .bdg.reel{color:var(--af-vert)} .mcell .bdg.ia{color:var(--txt-3)}
+/* Grille d'accessoires visuels (poignées, barres de tirage) */
+.acc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
+.acc-card{border:1.5px solid var(--line-2);border-radius:9px;overflow:hidden;cursor:pointer;background:var(--af-charbon-3);transition:.12s;display:flex;flex-direction:column;align-items:center;padding:7px 4px 5px;gap:4px}
+.acc-card:hover{border-color:var(--af-vert)}
+.acc-card.on{border-color:var(--af-vert);box-shadow:0 0 0 1px var(--af-vert) inset;background:var(--af-vert-soft)}
+.acc-card img{width:80%;aspect-ratio:1;object-fit:contain;background:#f4f3f1;border-radius:5px;display:block}
+.acc-card .acc-ph{width:80%;aspect-ratio:1;background:var(--af-charbon-2);border-radius:5px;display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--txt-3);text-align:center;padding:4px;line-height:1.2}
+.acc-card .anom{font-size:8.5px;font-weight:700;color:var(--txt-2);text-align:center;line-height:1.2;padding:0 2px}
+/* Preview accessoire sélectionné */
+.acc-prev{display:none;margin-top:8px;background:var(--af-charbon-3);border:1px solid var(--af-vert);border-radius:9px;padding:8px 10px;align-items:center;gap:9px}
+.acc-prev.show{display:flex}
+.acc-prev img{width:48px;height:48px;object-fit:contain;background:#f4f3f1;border-radius:6px;flex:none}
+.acc-prev .ap-ph{width:48px;height:48px;background:var(--af-charbon-2);border-radius:6px;flex:none;display:grid;place-items:center;font-size:9px;color:var(--txt-3);text-align:center;padding:3px}
+.acc-prev .ap-nom{font-weight:700;font-size:12px;color:var(--txt)}
+.acc-prev .ap-sub{font-size:10px;color:var(--txt-3);margin-top:1px}
 /* pastilles couleur RAL */
 .swatches{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .sw{width:30px;height:30px;border-radius:50%;border:2px solid var(--line-2);cursor:pointer;transition:.12s}
@@ -69,8 +84,14 @@ summary::before{content:"▸ ";color:var(--af-vert)}details[open] summary::befor
 .hint{font-size:11px;color:var(--txt-3);margin-top:7px;text-align:center}
 .detectbtn{width:100%;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--af-charbon-3);color:var(--af-vert);border:1px solid var(--af-vert);border-radius:9px;padding:9px;font:inherit;font-weight:700;font-size:12.5px;cursor:pointer}
 .detectbtn:hover{background:var(--af-vert-soft)}.detectbtn:disabled{opacity:.5;cursor:default}
-/* stage */
-.stage{background:var(--af-charbon);border:1px solid var(--line);border-radius:var(--radius);position:relative;overflow:hidden;display:grid;place-items:center;min-height:0}
+/* stage — portrait pour portes (768×1376), paysage pour portails */
+.stage{background:var(--af-charbon);border:1px solid var(--line);border-radius:var(--radius);position:relative;overflow:hidden;display:grid;place-items:center;
+  height:calc(100dvh - 90px);
+  width:min(calc((100dvh - 90px) * 0.558), calc(100vw - 412px));
+  align-self:start;justify-self:center}
+.stage.portail-mode{
+  width:min(calc(100vw - 412px), 900px);
+  height:calc(min(calc(100vw - 412px), 900px) * 0.424)}
 .stage>img#result{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--af-charbon)}
 .empty{text-align:center;color:var(--txt-3);padding:24px}
 .empty .big{width:58px;height:58px;border-radius:15px;background:var(--af-charbon-3);display:grid;place-items:center;margin:0 auto 12px}
@@ -164,11 +185,19 @@ summary::before{content:"▸ ";color:var(--af-vert)}details[open] summary::befor
           <label class="f">Vitrage</label>
           <select id="glaz"><option>Selon modèle</option><option>Vitrage dépoli</option><option>Vitrage clair</option><option>Vitrage décoratif</option><option>Sans vitrage</option></select>
           <label class="f">Poignée</label>
-          <select id="handle"><option>Selon modèle</option><option>Barre inox</option><option>Béquille noire</option><option>Poignée design</option></select>
+          <select id="handle" class="hide"></select>
+          <div class="acc-grid" id="handle-grid"></div>
+          <div class="acc-prev" id="handle-prev">
+            <div class="ap-ph" id="handle-prev-ph"></div>
+            <img id="handle-prev-img" src="" style="display:none" alt="">
+            <div><div class="ap-nom" id="handle-prev-nom"></div><div class="ap-sub">Poignée sélectionnée</div></div>
+          </div>
           <label class="f">Imposte (au-dessus)</label>
           <select id="p-imposte"><option value="">Sans</option><option value="avec une imposte vitrée au-dessus">Imposte vitrée</option><option value="avec une imposte pleine au-dessus">Imposte pleine</option></select>
           <label class="f">Panneau latéral (tierce)</label>
           <select id="p-tierce"><option value="">Sans</option><option value="avec un panneau latéral (tierce) vitré à droite">Tierce vitrée (droite)</option><option value="avec un panneau latéral (tierce) vitré à gauche">Tierce vitrée (gauche)</option><option value="avec un panneau latéral (tierce) plein à droite">Tierce pleine (droite)</option></select>
+          <label class="f" id="barre-label" style="display:none">Barre de tirage</label>
+          <div class="acc-grid" id="barre-grid" style="display:none"></div>
           <label class="f">Insert décoratif</label>
           <select id="p-insert"><option value="">Sans</option><option value="avec des inserts décoratifs en inox brossé">Inserts inox</option><option value="avec des petits bois décoratifs">Petits bois</option></select>
         </div>
@@ -372,6 +401,7 @@ document.querySelectorAll("#famille button").forEach(b=>b.addEventListener("clic
   else{ $("#larg").value="900"; $("#haut").value="2150"; }
   $("#portail-opts").classList.toggle("hide",FAM!=="portail");
   $("#porte-opts").classList.toggle("hide",FAM==="portail");
+  document.querySelector(".stage").classList.toggle("portail-mode", FAM==="portail");
   fillGammes();
 }));
 // décor portail : multi-sélection
@@ -730,6 +760,7 @@ loadCatalog(); refreshUsage();
 </script>
 <script src="manifest.js"></script>
 <script src="faisabilite_data.js"></script>
+<script src="nickel_data.js"></script>
 <script src="v2_live.js"></script>
 </body>
 </html>
